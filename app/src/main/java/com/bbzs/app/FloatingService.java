@@ -235,8 +235,43 @@ public class FloatingService extends Service {
             Toast.makeText(this, "菜单已显示", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             android.util.Log.e("FloatingService", "显示菜单失败: " + e.getMessage(), e);
-            Toast.makeText(this, "菜单显示失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+            // 显示可复制的错误对话框
+            String errorMsg = e.getClass().getName() + ": " + e.getMessage() + "\n\n";
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            errorMsg += sw.toString();
+
+            showErrorDialog(errorMsg);
         }
+    }
+
+    /**
+     * 显示错误对话框（可复制）
+     */
+    private void showErrorDialog(String errorMsg) {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(
+                new android.view.ContextThemeWrapper(this, android.R.style.Theme_Material_Light_Dialog_Alert)
+        );
+
+        android.widget.TextView textView = new android.widget.TextView(this);
+        textView.setText(errorMsg);
+        textView.setTextIsSelectable(true);
+        textView.setPadding(50, 50, 50, 50);
+        textView.setTextSize(12);
+
+        builder.setTitle("菜单显示失败")
+                .setView(textView)
+                .setPositiveButton("确定", null)
+                .create();
+
+        android.app.AlertDialog dialog = builder.create();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        } else {
+            dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+        }
+        dialog.show();
     }
 
     /**
