@@ -177,15 +177,26 @@ public class FloatingService extends Service {
      * 初始化功能菜单（不立即显示）
      */
     private void initFloatingMenu() {
-        floatingMenu = LayoutInflater.from(this).inflate(R.layout.layout_floating_menu, null);
+        try {
+            // 使用 ContextThemeWrapper 包装 Service 上下文
+            android.view.ContextThemeWrapper themedContext = new android.view.ContextThemeWrapper(
+                    this, R.style.Theme_Bbzs
+            );
 
-        // 三个功能按钮点击事件
-        floatingMenu.findViewById(R.id.btn_10w).setOnClickListener(v -> openTaobaoUrl(URL_10W));
-        floatingMenu.findViewById(R.id.btn_6w).setOnClickListener(v -> openTaobaoUrl(URL_6W));
-        floatingMenu.findViewById(R.id.btn_5w).setOnClickListener(v -> openTaobaoUrl(URL_5W));
+            floatingMenu = LayoutInflater.from(themedContext).inflate(R.layout.layout_floating_menu, null);
 
-        // 右上角更多菜单
-        floatingMenu.findViewById(R.id.iv_menu_more).setOnClickListener(this::showPopupMenu);
+            // 三个功能按钮点击事件
+            floatingMenu.findViewById(R.id.btn_10w).setOnClickListener(v -> openTaobaoUrl(URL_10W));
+            floatingMenu.findViewById(R.id.btn_6w).setOnClickListener(v -> openTaobaoUrl(URL_6W));
+            floatingMenu.findViewById(R.id.btn_5w).setOnClickListener(v -> openTaobaoUrl(URL_5W));
+
+            // 右上角更多菜单
+            floatingMenu.findViewById(R.id.iv_menu_more).setOnClickListener(this::showPopupMenu);
+
+            android.util.Log.d("FloatingService", "功能菜单初始化成功");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "初始化菜单失败: " + e.getMessage(), e);
+        }
     }
 
     /**
