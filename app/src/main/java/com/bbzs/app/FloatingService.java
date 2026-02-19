@@ -141,8 +141,10 @@ public class FloatingService extends Service {
 
                         // 判断是点击还是拖动
                         if (totalDx < 10 && totalDy < 10 && duration < 300) {
+                            android.util.Log.d("FloatingService", "检测到点击事件，切换菜单");
                             toggleMenu();
                         } else {
+                            android.util.Log.d("FloatingService", "检测到拖动事件，贴边");
                             snapToEdge();
                         }
                         return true;
@@ -230,8 +232,10 @@ public class FloatingService extends Service {
             isMenuVisible = true;
 
             android.util.Log.d("FloatingService", "功能菜单已显示");
+            Toast.makeText(this, "菜单已显示", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             android.util.Log.e("FloatingService", "显示菜单失败: " + e.getMessage(), e);
+            Toast.makeText(this, "菜单显示失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
