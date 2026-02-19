@@ -203,21 +203,36 @@ public class FloatingService extends Service {
     private void showMenu() {
         if (isMenuVisible) return;
 
-        int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
+        try {
+            int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
 
-        menuParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                layoutType,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                PixelFormat.TRANSLUCENT
-        );
-        menuParams.gravity = Gravity.CENTER;
+            menuParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    layoutType,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    PixelFormat.TRANSLUCENT
+            );
+            menuParams.gravity = Gravity.CENTER;
 
-        windowManager.addView(floatingMenu, menuParams);
-        isMenuVisible = true;
+            // 添加点击外部关闭菜单的监听
+            floatingMenu.setOnTouchListener((v, event) -> {
+                if (event.getAction() == android.view.MotionEvent.ACTION_OUTSIDE) {
+                    hideMenu();
+                    return true;
+                }
+                return false;
+            });
+
+            windowManager.addView(floatingMenu, menuParams);
+            isMenuVisible = true;
+
+            android.util.Log.d("FloatingService", "功能菜单已显示");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "显示菜单失败: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -225,33 +240,46 @@ public class FloatingService extends Service {
      */
     private void hideMenu() {
         if (!isMenuVisible) return;
-        if (floatingMenu.isAttachedToWindow()) {
-            windowManager.removeView(floatingMenu);
+        try {
+            if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
+                windowManager.removeView(floatingMenu);
+            }
+            isMenuVisible = false;
+            android.util.Log.d("FloatingService", "功能菜单已隐藏");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "隐藏菜单失败: " + e.getMessage(), e);
         }
-        isMenuVisible = false;
     }
 
     /**
      * 显示右上角弹出菜单
      */
     private void showPopupMenu(View anchor) {
-        PopupMenu popup = new PopupMenu(this, anchor);
-        popup.getMenuInflater().inflate(R.menu.menu_more, popup.getMenu());
-        popup.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.menu_exit) {
-                stopSelf();
-                return true;
-            } else if (id == R.id.menu_help) {
-                Toast.makeText(this, "点击按钮跳转到淘宝对应页面", Toast.LENGTH_SHORT).show();
-                return true;
-            } else if (id == R.id.menu_about) {
-                Toast.makeText(this, "步步助手 v1.0", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-            return false;
-        });
-        popup.show();
+        try {
+            // 使用 ContextThemeWrapper 来确保 PopupMenu 能正常显示
+            android.view.ContextThemeWrapper wrapper = new android.view.ContextThemeWrapper(this, R.style.Theme_Bbzs);
+            PopupMenu popup = new PopupMenu(wrapper, anchor);
+            popup.getMenuInflater().inflate(R.menu.menu_more, popup.getMenu());
+            popup.setOnMenuItemClickListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.menu_exit) {
+                    stopSelf();
+                    return true;
+                } else if (id == R.id.menu_help) {
+                    Toast.makeText(this, "点击按钮跳转到淘宝对应页面", Toast.LENGTH_SHORT).show();
+                    return true;
+                } else if (id == R.id.menu_about) {
+                    Toast.makeText(this, "步步助手 v1.0", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
+            android.util.Log.d("FloatingService", "弹出菜单已显示");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "显示弹出菜单失败: " + e.getMessage(), e);
+            Toast.makeText(this, "菜单显示失败", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
