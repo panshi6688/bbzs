@@ -44,12 +44,18 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
-        startForeground(1, buildNotification());
+        try {
+            createNotificationChannel();
+            startForeground(1, buildNotification());
 
-        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        initFloatingIcon();
-        initFloatingMenu();
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+            initFloatingIcon();
+            initFloatingMenu();
+
+            android.util.Log.d("FloatingService", "悬浮窗服务已启动");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "启动失败: " + e.getMessage(), e);
+        }
     }
 
     @Nullable
@@ -71,25 +77,31 @@ public class FloatingService extends Service {
      * 初始化悬浮图标
      */
     private void initFloatingIcon() {
-        floatingIcon = LayoutInflater.from(this).inflate(R.layout.layout_floating_icon, null);
+        try {
+            floatingIcon = LayoutInflater.from(this).inflate(R.layout.layout_floating_icon, null);
 
-        int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
+            int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
 
-        iconParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                layoutType,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                PixelFormat.TRANSLUCENT
-        );
-        iconParams.gravity = Gravity.TOP | Gravity.START;
-        iconParams.x = 0;
-        iconParams.y = 300;
+            iconParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    layoutType,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+            );
+            iconParams.gravity = Gravity.TOP | Gravity.START;
+            iconParams.x = 0;
+            iconParams.y = 300;
 
-        windowManager.addView(floatingIcon, iconParams);
-        setupIconTouchListener();
+            windowManager.addView(floatingIcon, iconParams);
+            setupIconTouchListener();
+
+            android.util.Log.d("FloatingService", "悬浮图标已添加");
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "添加悬浮图标失败: " + e.getMessage(), e);
+        }
     }
 
     /**

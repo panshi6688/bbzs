@@ -1,13 +1,18 @@
 package com.bbzs.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 /**
  * 主Activity：检查悬浮窗权限并启动悬浮服务
@@ -15,11 +20,39 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_OVERLAY_PERMISSION = 1001;
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1002;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        checkPermissions();
+    }
+
+    /**
+     * 检查所有必要权限
+     */
+    private void checkPermissions() {
+        // 先检查通知权限（Android 13+）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        REQUEST_NOTIFICATION_PERMISSION);
+                return;
+            }
+        }
+
+        // 再检查悬浮窗权限
         checkOverlayPermission();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            checkOverlayPermission();
+        }
     }
 
     /**
@@ -30,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
             showPermissionDialog();
         } else {
             startFloatingService();
+            Toast.makeText(this, "悬浮窗已启动", Toast.LENGTH_SHORT).show();
             finish();
         }
     }
