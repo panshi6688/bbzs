@@ -206,6 +206,12 @@ public class FloatingService extends Service {
         if (isMenuVisible) return;
 
         try {
+            // 如果菜单为空，重新初始化
+            if (floatingMenu == null) {
+                android.util.Log.d("FloatingService", "菜单为空，重新初始化");
+                initFloatingMenu();
+            }
+
             int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
@@ -218,15 +224,6 @@ public class FloatingService extends Service {
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
-
-            // 添加点击外部关闭菜单的监听
-            floatingMenu.setOnTouchListener((v, event) -> {
-                if (event.getAction() == android.view.MotionEvent.ACTION_OUTSIDE) {
-                    hideMenu();
-                    return true;
-                }
-                return false;
-            });
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
@@ -282,6 +279,8 @@ public class FloatingService extends Service {
         try {
             if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
                 windowManager.removeView(floatingMenu);
+                // 移除后将菜单设为 null，下次显示时重新创建
+                floatingMenu = null;
             }
             isMenuVisible = false;
             android.util.Log.d("FloatingService", "功能菜单已隐藏");
