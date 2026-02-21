@@ -1,0 +1,23 @@
+R_DEF: Internal format may change without notice
+local
+color ic_launcher_background
+drawable bg_badge
+drawable bg_menu_panel
+drawable ic_floating
+drawable ic_more
+id btn_10w
+id btn_5w
+id btn_6w
+id iv_floating
+id iv_menu_more
+id menu_about
+id menu_exit
+id menu_help
+layout layout_floating_icon
+layout layout_floating_menu
+menu menu_more
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+style FunctionButton
+style Theme.Bbzs

@@ -1,0 +1,38 @@
+[
+    {
+        "merged": "com.bbzs.app-merged_res-31:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.bbzs.app-main-33:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.bbzs.app-main-33:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/drawable_bg_badge.xml.flat",
+        "source": "com.bbzs.app-main-33:/drawable/bg_badge.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/layout_layout_floating_menu.xml.flat",
+        "source": "com.bbzs.app-main-33:/layout/layout_floating_menu.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/layout_layout_floating_icon.xml.flat",
+        "source": "com.bbzs.app-main-33:/layout/layout_floating_icon.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/drawable_ic_more.xml.flat",
+        "source": "com.bbzs.app-main-33:/drawable/ic_more.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/menu_menu_more.xml.flat",
+        "source": "com.bbzs.app-main-33:/menu/menu_more.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/drawable_ic_floating.xml.flat",
+        "source": "com.bbzs.app-main-33:/drawable/ic_floating.xml"
+    },
+    {
+        "merged": "com.bbzs.app-merged_res-31:/drawable_bg_menu_panel.xml.flat",
+        "source": "com.bbzs.app-main-33:/drawable/bg_menu_panel.xml"
+    }
+]
