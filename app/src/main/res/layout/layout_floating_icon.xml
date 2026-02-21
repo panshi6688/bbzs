@@ -11,5 +11,14 @@
         android:contentDescription="悬浮按钮"
         android:scaleType="centerInside" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="芭"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center" />
+
 </FrameLayout>
 

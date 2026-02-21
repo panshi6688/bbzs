@@ -116,14 +116,48 @@ public class FloatingService extends Service {
     }
 
     /**
-     * 设置悬浮图标触摸监听
+     * 设置悬浮图标触摸监听：短按切换菜单，长按拖动
      */
     private void setupIconTouchListener() {
+        final int[] lastX = {0};
+        final int[] lastY = {0};
+        final boolean[] isDragging = {false};
+        final long[] downTime = {0};
+        final int LONG_PRESS_THRESHOLD = 300; // 长按判定时间(ms)
+        final int DRAG_THRESHOLD = 8; // 拖动判定距离(px)
+
         floatingIcon.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                toggleMenu();
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastX[0] = (int) event.getRawX();
+                    lastY[0] = (int) event.getRawY();
+                    isDragging[0] = false;
+                    downTime[0] = System.currentTimeMillis();
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    int dx = (int) event.getRawX() - lastX[0];
+                    int dy = (int) event.getRawY() - lastY[0];
+                    // 超过拖动阈值或已在拖动中，则进入拖动模式
+                    if (isDragging[0] || Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+                        isDragging[0] = true;
+                        iconParams.x += dx;
+                        iconParams.y += dy;
+                        windowManager.updateViewLayout(floatingIcon, iconParams);
+                        lastX[0] = (int) event.getRawX();
+                        lastY[0] = (int) event.getRawY();
+               }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                    // 未拖动且按下时间短于长按阈值，视为点击
+                    if (!isDragging[0] && (System.currentTimeMillis() - downTime[0]) < LONG_PRESS_THRESHOLD) {
+                        toggleMenu();
+                    }
+                    isDragging[0] = false;
+                    return true;
             }
-            return true;
+            return false;
         });
     }
 
@@ -137,12 +171,6 @@ public class FloatingService extends Service {
             );
 
             floatingMenu = LayoutInflater.from(themedContext).inflate(R.layout.layout_floating_menu, null);
-
-            // 标题栏点击隐藏菜单
-            View titleBar = floatingMenu.findViewById(R.id.title_bar);
-            if (titleBar != null) {
-                titleBar.setOnClickListener(v -> hideMenu());
-            }
 
             // 右上角更多菜单
             floatingMenu.findViewById(R.id.iv_menu_more).setOnClickListener(this::showPopupMenu);
@@ -373,9 +401,18 @@ public class FloatingService extends Service {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
+            // 获取屏幕尺寸，菜单高度 = 屏幕高度 - 上下各20px边距
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            int screenWidth = dm.widthPixels;
+            int screenHeight = dm.heightPixels;
+            int margin = 20; // px
+            int menuWidth = screenWidth - margin * 2;
+            int menuHeight = screenHeight - margin * 2;
+
             menuParams = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    menuWidth,
+                    menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT

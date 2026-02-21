@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 橙色圆形背景 -->
+    <path
+        android:fillColor="#FF6200"
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" />
+
+    <!-- 白色"芭"字 草字头左竖 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M38,26 L41,26 L41,36 L38,36 Z"/>
+    <!-- 草字头右竖 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M48,26 L51,26 L51,36 L48,36 Z"/>
+    <!-- 草字头横 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M36,33 L53,33 L53,36 L36,36 Z"/>
+    <!-- 巴字上横 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M36,38 L58,38 L58,41 L36,41 Z"/>
+    <!-- 巴字左竖 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M36,38 L39,38 L39,72 L36,72 Z"/>
+    <!-- 巴字中横 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M36,53 L56,53 L56,56 L36,56 Z"/>
+    <!-- 巴字右竖上段 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M55,38 L58,38 L58,56 L55,56 Z"/>
+    <!-- 巴字下横 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M36,69 L60,69 L60,72 L36,72 Z"/>
+    <!-- 巴字右竖下段 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M57,56 L60,56 L60,72 L57,72 Z"/>
+
+</vector>
+
