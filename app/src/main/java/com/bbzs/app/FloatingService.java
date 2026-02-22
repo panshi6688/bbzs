@@ -38,6 +38,7 @@ public class FloatingService extends Service {
     private WindowManager.LayoutParams iconParams;
     private WindowManager.LayoutParams menuParams;
     private boolean isMenuVisible = false;
+    private android.content.Context themedContext; // 带主题的Context，用于创建Material组件
 
     // 按钮数据结构
     private static class ButtonData {
@@ -146,13 +147,16 @@ public class FloatingService extends Service {
                         windowManager.updateViewLayout(floatingIcon, iconParams);
                         lastX[0] = (int) event.getRawX();
                         lastY[0] = (int) event.getRawY();
-               }
+                    }
                     return true;
 
                 case MotionEvent.ACTION_UP:
                     // 未拖动且按下时间短于长按阈值，视为点击
                     if (!isDragging[0] && (System.currentTimeMillis() - downTime[0]) < LONG_PRESS_THRESHOLD) {
                         toggleMenu();
+                    } else if (isDragging[0]) {
+                        // 拖动结束后自动贴边
+                        snapToEdge();
                     }
                     isDragging[0] = false;
                     return true;
@@ -162,11 +166,32 @@ public class FloatingService extends Service {
     }
 
     /**
+     * 悬浮图标自动贴边
+     */
+    private void snapToEdge() {
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        windowManager.getDefaultDisplay().getMetrics(dm);
+        int screenWidth = dm.widthPixels;
+        int iconWidth = floatingIcon.getWidth();
+
+        // 判断靠左还是靠右
+        int centerX = iconParams.x + iconWidth / 2;
+        if (centerX < screenWidth / 2) {
+            // 贴左边
+            iconParams.x = 0;
+        } else {
+            // 贴右边
+            iconParams.x = screenWidth - iconWidth;
+        }
+        windowManager.updateViewLayout(floatingIcon, iconParams);
+    }
+
+    /**
      * 初始化功能菜单
      */
     private void initFloatingMenu() {
         try {
-            android.view.ContextThemeWrapper themedContext = new android.view.ContextThemeWrapper(
+            themedContext = new android.view.ContextThemeWrapper(
                     this, R.style.Theme_Bbzs
             );
 
@@ -282,7 +307,7 @@ public class FloatingService extends Service {
      * 添加文本行
      */
     private void addTextRow(LinearLayout container, String text) {
-        android.widget.TextView tv = new android.widget.TextView(this);
+        android.widget.TextView tv = new android.widget.TextView(themedContext);
         tv.setText(text);
         tv.setTextSize(11);
         tv.setTextColor(0xFFFF6200);
@@ -301,7 +326,7 @@ public class FloatingService extends Service {
      * 添加按钮行
      */
     private void addButtonRow(LinearLayout container, ButtonData[] buttons) {
-        LinearLayout row = new LinearLayout(this);
+        LinearLayout row = new LinearLayout(themedContext);
         row.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -322,7 +347,7 @@ public class FloatingService extends Service {
      * 添加单个按钮
      */
     private void addButton(LinearLayout row, ButtonData data, boolean hasMargin) {
-        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(themedContext);
         LinearLayout.LayoutParams frameParams = new LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -333,7 +358,7 @@ public class FloatingService extends Service {
         }
         frame.setLayoutParams(frameParams);
 
-        MaterialButton btn = new MaterialButton(this);
+        MaterialButton btn = new MaterialButton(themedContext);
         btn.setText(data.text);
         btn.setTextSize(11);
         btn.setMinHeight(40);
@@ -355,7 +380,7 @@ public class FloatingService extends Service {
 
         // 添加badge
         if (data.badge != null && !data.badge.isEmpty()) {
-            android.widget.TextView badge = new android.widget.TextView(this);
+            android.widget.TextView badge = new android.widget.TextView(themedContext);
             badge.setText(data.badge);
             badge.setTextSize(8);
             badge.setTextColor(0xFFFF6200);
@@ -401,12 +426,12 @@ public class FloatingService extends Service {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
-            // 获取屏幕尺寸，菜单高度 = 屏幕高度 - 上下各20px边距
+            // 获取屏幕尺寸，菜单高度 = 屏幕高度 - 上下各60px边距
             android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
             windowManager.getDefaultDisplay().getMetrics(dm);
             int screenWidth = dm.widthPixels;
             int screenHeight = dm.heightPixels;
-            int margin = 20; // px
+            int margin = 60; // px
             int menuWidth = screenWidth - margin * 2;
             int menuHeight = screenHeight - margin * 2;
 

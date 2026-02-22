@@ -18,7 +18,8 @@
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:gravity="center" />
+        android:gravity="center"
+        android:layout_gravity="center" />
 
 </FrameLayout>
 
