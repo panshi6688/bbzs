@@ -365,17 +365,38 @@ public class FloatingService extends Service {
         }
         frame.setLayoutParams(frameParams);
 
+        // 判断是否有badge，有则显示两行文字
+        boolean hasBadge = data.badge != null && !data.badge.isEmpty();
+
         MaterialButton btn = new MaterialButton(themedContext);
-        btn.setText(data.text);
         btn.setTextSize(11);
-        btn.setMinHeight(40);
+        btn.setMinHeight(44);
         btn.setCornerRadius(8);
         btn.setStrokeWidth(1);
         btn.setStrokeColor(android.content.res.ColorStateList.valueOf(0xFFDDDDDD));
         btn.setBackgroundColor(0xFFFFFFFF);
         btn.setTextColor(0xFF333333);
-        // 为badge预留右上角空间
-        btn.setPadding(4, 12, 4, 4);
+        btn.setInsetTop(0);
+        btn.setInsetBottom(0);
+        btn.setPadding(4, 2, 4, 2);
+
+        // 如果有badge，将badge文字和按钮文字组合显示
+        if (hasBadge) {
+            String fullText = data.badge + "\n" + data.text;
+            android.text.SpannableString spannable = new android.text.SpannableString(fullText);
+            // badge部分：小字、橙色
+            spannable.setSpan(new android.text.style.AbsoluteSizeSpan(9, true), 0, data.badge.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new android.text.style.ForegroundColorSpan(0xFFFF6200), 0, data.badge.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            // 主文字部分
+            spannable.setSpan(new android.text.style.AbsoluteSizeSpan(11, true), data.badge.length() + 1, fullText.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            btn.setText(spannable);
+        } else {
+            btn.setText(data.text);
+        }
+
         android.widget.FrameLayout.LayoutParams btnParams = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
@@ -386,25 +407,6 @@ public class FloatingService extends Service {
         btn.setOnClickListener(v -> openTaobaoUrl(url));
 
         frame.addView(btn);
-
-        // 添加badge - 在按钮内部右上角显示
-        if (data.badge != null && !data.badge.isEmpty()) {
-            android.widget.TextView badge = new android.widget.TextView(themedContext);
-            badge.setText(data.badge);
-            badge.setTextSize(7);
-            badge.setTextColor(0xFFFF6200);
-            badge.setPadding(2, 0, 2, 0);
-            android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-                    android.view.Gravity.END | android.view.Gravity.TOP
-            );
-            badgeParams.topMargin = 4;
-            badgeParams.rightMargin = 4;
-            badge.setLayoutParams(badgeParams);
-            frame.addView(badge);
-        }
-
         row.addView(frame);
     }
 
@@ -439,7 +441,7 @@ public class FloatingService extends Service {
             windowManager.getDefaultDisplay().getMetrics(dm);
             int screenWidth = dm.widthPixels;
             int screenHeight = dm.heightPixels;
-            int horizontalMargin = 60; // 左右边距60px
+            int horizontalMargin = 120; // 左右边距120px
             int verticalMargin = 200; // 上下边距200px（内容过多时）
             int menuWidth = screenWidth - horizontalMargin * 2;
 
