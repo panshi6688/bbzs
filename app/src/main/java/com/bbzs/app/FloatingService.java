@@ -365,16 +365,18 @@ public class FloatingService extends Service {
         }
         frame.setLayoutParams(frameParams);
 
-        // 判断是否有badge，有则显示两行文字
+        // 判断是否有badge
         boolean hasBadge = data.badge != null && !data.badge.isEmpty();
 
-        MaterialButton btn = new MaterialButton(themedContext);
+        // 使用OutlinedButton样式，白色背景
+        MaterialButton btn = new MaterialButton(themedContext, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btn.setTextSize(11);
         btn.setMinHeight(44);
         btn.setCornerRadius(8);
         btn.setStrokeWidth(1);
-        btn.setStrokeColor(android.content.res.ColorStateList.valueOf(0xFFDDDDDD));
-        btn.setBackgroundColor(0xFFFFFFFF);
+        btn.setStrokeColorResource(android.R.color.darker_gray);
+        btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
         btn.setTextColor(0xFF333333);
         btn.setInsetTop(0);
         btn.setInsetBottom(0);
@@ -554,9 +556,16 @@ public class FloatingService extends Service {
      * 显示关于对话框
      */
     private void showAboutDialog() {
+        String versionName = "1.0.0";
+        try {
+            versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            // 忽略
+        }
+
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
         builder.setTitle("关于")
-                .setMessage("芭芭助手 v1.01\n\n" +
+                .setMessage("芭芭助手 v" + versionName + "\n\n" +
                         "淘宝农场助手工具\n" +
                         "快速访问常用功能页面")
                 .setPositiveButton("确定", null);
