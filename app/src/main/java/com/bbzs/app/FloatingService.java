@@ -652,7 +652,8 @@ public class FloatingService extends Service {
             panel.addView(title);
 
             // 当前字体大小显示
-            android.widget.TextView sizeText = new android.widget.TextView(themedContext            sizeText.setText(String.format("当前: %.1f倍", currentFontScale));
+            android.widget.TextView sizeText = new android.widget.TextView(themedContext);
+            sizeText.setText(String.format("当前: %.1f倍", currentFontScale));
             sizeText.setTextSize(14);
             sizeText.setTextColor(0xFF666666);
             sizeText.setGravity(Gravity.CENTER);
