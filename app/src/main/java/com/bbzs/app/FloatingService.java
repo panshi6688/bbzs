@@ -96,6 +96,13 @@ public class FloatingService extends Service {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
+            // 获取屏幕尺寸，设置默认位置为屏幕右边中间
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            int screenWidth = dm.widthPixels;
+            int screenHeight = dm.heightPixels;
+            int iconSize = (int) (48 * dm.density); // 48dp转px
+
             iconParams = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
@@ -104,8 +111,8 @@ public class FloatingService extends Service {
                     PixelFormat.TRANSLUCENT
             );
             iconParams.gravity = Gravity.TOP | Gravity.START;
-            iconParams.x = 0;
-            iconParams.y = 300;
+            iconParams.x = screenWidth - iconSize; // 右边
+            iconParams.y = (screenHeight - iconSize) / 2; // 垂直居中
 
             windowManager.addView(floatingIcon, iconParams);
             setupIconTouchListener();
@@ -332,8 +339,8 @@ public class FloatingService extends Service {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        rowParams.topMargin = 2;
-        rowParams.bottomMargin = 2;
+        rowParams.topMargin = 1;
+        rowParams.bottomMargin = 1;
         row.setLayoutParams(rowParams);
 
         for (int i = 0; i < buttons.length; i++) {
@@ -367,6 +374,8 @@ public class FloatingService extends Service {
         btn.setStrokeColor(android.content.res.ColorStateList.valueOf(0xFFDDDDDD));
         btn.setBackgroundColor(0xFFFFFFFF);
         btn.setTextColor(0xFF333333);
+        // 为badge预留右上角空间
+        btn.setPadding(4, 12, 4, 4);
         android.widget.FrameLayout.LayoutParams btnParams = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
@@ -378,21 +387,20 @@ public class FloatingService extends Service {
 
         frame.addView(btn);
 
-        // 添加badge
+        // 添加badge - 在按钮内部右上角显示
         if (data.badge != null && !data.badge.isEmpty()) {
             android.widget.TextView badge = new android.widget.TextView(themedContext);
             badge.setText(data.badge);
-            badge.setTextSize(8);
+            badge.setTextSize(7);
             badge.setTextColor(0xFFFF6200);
-            badge.setBackgroundResource(R.drawable.bg_badge);
-            badge.setPadding(2, 1, 2, 1);
+            badge.setPadding(2, 0, 2, 0);
             android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
                     android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                     android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                     android.view.Gravity.END | android.view.Gravity.TOP
             );
-            badgeParams.topMargin = 1;
-            badgeParams.rightMargin = 2;
+            badgeParams.topMargin = 4;
+            badgeParams.rightMargin = 4;
             badge.setLayoutParams(badgeParams);
             frame.addView(badge);
         }
@@ -426,14 +434,25 @@ public class FloatingService extends Service {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
-            // 获取屏幕尺寸，菜单高度 = 屏幕高度 - 上下各60px边距
+            // 获取屏幕尺寸
             android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
             windowManager.getDefaultDisplay().getMetrics(dm);
             int screenWidth = dm.widthPixels;
             int screenHeight = dm.heightPixels;
-            int margin = 60; // px
-            int menuWidth = screenWidth - margin * 2;
-            int menuHeight = screenHeight - margin * 2;
+            int horizontalMargin = 60; // 左右边距60px
+            int verticalMargin = 200; // 上下边距200px（内容过多时）
+            int menuWidth = screenWidth - horizontalMargin * 2;
+
+            // 先测量菜单内容实际高度
+            floatingMenu.measure(
+                    View.MeasureSpec.makeMeasureSpec(menuWidth, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            );
+            int contentHeight = floatingMenu.getMeasuredHeight();
+            int maxHeight = screenHeight - verticalMargin * 2;
+
+            // 如果内容高度小于最大高度，使用内容高度；否则使用最大高度
+            int menuHeight = Math.min(contentHeight, maxHeight);
 
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
@@ -493,10 +512,10 @@ public class FloatingService extends Service {
                     stopSelf();
                     return true;
                 } else if (id == R.id.menu_help) {
-                    Toast.makeText(this, "点击按钮跳转到淘宝对应页面", Toast.LENGTH_SHORT).show();
+                    showHelpDialog();
                     return true;
                 } else if (id == R.id.menu_about) {
-                    Toast.makeText(this, "芭芭助手 v1.01", Toast.LENGTH_SHORT).show();
+                    showAboutDialog();
                     return true;
                 }
                 return false;
@@ -506,6 +525,46 @@ public class FloatingService extends Service {
             android.util.Log.e("FloatingService", "显示弹出菜单失败: " + e.getMessage(), e);
             Toast.makeText(this, "菜单显示失败", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * 显示使用帮助对话框
+     */
+    private void showHelpDialog() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("使用帮助")
+                .setMessage("1. 点击悬浮图标打开功能菜单\n" +
+                        "2. 拖动悬浮图标可移动位置，松手自动贴边\n" +
+                        "3. 点击功能按钮跳转到淘宝对应页面\n" +
+                        "4. 部分肥料页需每日进入一次农场激活\n" +
+                        "5. 点击菜单外部区域关闭菜单")
+                .setPositiveButton("知道了", null);
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
+    }
+
+    /**
+     * 显示关于对话框
+     */
+    private void showAboutDialog() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("关于")
+                .setMessage("芭芭助手 v1.01\n\n" +
+                        "淘宝农场助手工具\n" +
+                        "快速访问常用功能页面")
+                .setPositiveButton("确定", null);
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
     }
 
     /**
