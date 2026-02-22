@@ -31,15 +31,21 @@ import com.google.android.material.button.MaterialButton;
 public class FloatingService extends Service {
 
     private static final String CHANNEL_ID = "bbzs_floating_channel";
+    private static final String PREF_NAME = "bbzs_settings";
+    private static final String KEY_FONT_SCALE = "font_scale";
+    private static final float DEFAULT_FONT_SCALE = 1.0f; // 默认字体缩放比例
 
     private WindowManager windowManager;
     private View floatingIcon;
     private View floatingMenu;
     private View overlayMask; // 全屏透明遮罩层，拦截菜单外部点击
+    private View fontSizePanel; // 字体大小调整面板
     private WindowManager.LayoutParams iconParams;
     private WindowManager.LayoutParams menuParams;
     private boolean isMenuVisible = false;
+    private boolean isFontPanelVisible = false;
     private android.content.Context themedContext; // 带主题的Context，用于创建Material组件
+    private float currentFontScale = DEFAULT_FONT_SCALE; // 当前字体缩放比例
 
     // 按钮数据结构
     private static class ButtonData {
@@ -58,6 +64,10 @@ public class FloatingService extends Service {
     public void onCreate() {
         super.onCreate();
         try {
+            // 加载保存的字体缩放比例
+            android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+            currentFontScale = prefs.getFloat(KEY_FONT_SCALE, DEFAULT_FONT_SCALE);
+
             createNotificationChannel();
             startForeground(1, buildNotification());
 
@@ -80,6 +90,9 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (fontSizePanel != null && fontSizePanel.isAttachedToWindow()) {
+            windowManager.removeView(fontSizePanel);
+        }
         if (floatingIcon != null) windowManager.removeView(floatingIcon);
         if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
             windowManager.removeView(floatingMenu);
@@ -320,7 +333,7 @@ public class FloatingService extends Service {
     private void addTextRow(LinearLayout container, String text) {
         android.widget.TextView tv = new android.widget.TextView(themedContext);
         tv.setText(text);
-        tv.setTextSize(11);
+        tv.setTextSize(14 * currentFontScale); // 应用字体缩放
         tv.setTextColor(0xFFFF6200);
         tv.setGravity(android.view.Gravity.CENTER);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -330,6 +343,7 @@ public class FloatingService extends Service {
         params.topMargin = 8;
         params.bottomMargin = 4;
         tv.setLayoutParams(params);
+        tv.setTag("text_row"); // 标记用于后续更新
         container.addView(tv);
     }
 
@@ -375,7 +389,7 @@ public class FloatingService extends Service {
         MaterialButton btn = new MaterialButton(themedContext, null,
                 com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btn.setText(data.text);
-        btn.setTextSize(11);
+        btn.setTextSize(13 * currentFontScale); // 应用字体缩放
         btn.setMinHeight(44);
         btn.setCornerRadius(8);
         btn.setStrokeWidth(1);
@@ -385,6 +399,7 @@ public class FloatingService extends Service {
         btn.setInsetTop(0);
         btn.setInsetBottom(0);
         btn.setPadding(4, 4, 4, 4);
+        btn.setTag("btn_text"); // 标记用于后续更新
 
         android.widget.FrameLayout.LayoutParams btnParams = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
@@ -400,7 +415,7 @@ public class FloatingService extends Service {
         if (hasBadge) {
             android.widget.TextView badge = new android.widget.TextView(themedContext);
             badge.setText(data.badge);
-            badge.setTextSize(8);
+            badge.setTextSize(9 * currentFontScale); // 应用字体缩放
             badge.setTextColor(0xFFFF6200);
             android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
                     android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -411,6 +426,7 @@ public class FloatingService extends Service {
             badgeParams.topMargin = 6;
             badgeParams.rightMargin = 8;
             badge.setLayoutParams(badgeParams);
+            badge.setTag("badge_text"); // 标记用于后续更新
             frame.addView(badge);
         }
 
@@ -527,6 +543,9 @@ public class FloatingService extends Service {
                 if (id == R.id.menu_exit) {
                     stopSelf();
                     return true;
+                } else if (id == R.id.menu_font_size) {
+                    showFontSizePanel();
+                    return true;
                 } else if (id == R.id.menu_help) {
                     showHelpDialog();
                     return true;
@@ -549,7 +568,8 @@ public class FloatingService extends Service {
     private void showHelpDialog() {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
         builder.setTitle("使用帮助")
-                .setMessage("1. 点击悬浮图标打开功能菜单\n" +
+                .setMessage(
+                        "1. 点击悬浮图标打开功能菜单\n" +
                         "2. 拖动悬浮图标可移动位置，松手自动贴边\n" +
                         "3. 点击功能按钮跳转到淘宝对应页面\n" +
                         "4. 部分肥料页需每日进入一次农场激活\n" +
@@ -596,14 +616,275 @@ public class FloatingService extends Service {
     private void openTaobaoUrl(String url) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             intent.setPackage("com.taobao.taobao");
             startActivity(intent);
         } catch (Exception e) {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(intent);
         }
+    }
+
+    /**
+     * 显示字体大小调整面板
+     */
+    private void showFontSizePanel() {
+        if (isFontPanelVisible) return;
+
+        try {
+            int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
+
+            // 创建面板布局
+            LinearLayout panel = new LinearLayout(themedContext);
+            panel.setOrientation(LinearLayout.VERTICAL);
+            panel.setBackgroundColor(0xFFFFFFFF);
+            panel.setPadding(20, 20, 20, 20);
+
+            // 标题
+            android.widget.TextView title = new android.widget.TextView(themedContext);
+            title.setText("调整字体大小");
+            title.setTextSize(16);
+            title.setTextColor(0xFF333333);
+            title.setGravity(Gravity.CENTER);
+            panel.addView(title);
+
+            // 当前字体大小显示
+            android.widget.TextView sizeText = new android.widget.TextView(themedContext            sizeText.setText(String.format("当前: %.1f倍", currentFontScale));
+            sizeText.setTextSize(14);
+            sizeText.setTextColor(0xFF666666);
+            sizeText.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams sizeParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            sizeParams.topMargin = 10;
+            sizeText.setLayoutParams(sizeParams);
+            panel.addView(sizeText);
+
+            // 滑动条容器
+            LinearLayout sliderContainer = new LinearLayout(themedContext);
+            sliderContainer.setOrientation(LinearLayout.HORIZONTAL);
+            sliderContainer.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams sliderContainerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            sliderContainerParams.topMargin = 20;
+            sliderContainer.setLayoutParams(sliderContainerParams);
+
+            // 减小按钮
+            MaterialButton btnDecrease = new MaterialButton(themedContext);
+            btnDecrease.setText("-");
+            btnDecrease.setTextSize(18);
+            LinearLayout.LayoutParams decreaseParams = new LinearLayout.LayoutParams(
+                    60,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            btnDecrease.setLayoutParams(decreaseParams);
+
+            // 滑动条
+            android.widget.SeekBar seekBar = new android.widget.SeekBar(themedContext);
+            seekBar.setMax(20); // 0.5倍到2.5倍，步长0.1
+            seekBar.setProgress((int)((currentFontScale - 0.5f) * 10));
+            LinearLayout.LayoutParams seekBarParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            seekBarParams.leftMargin = 10;
+            seekBarParams.rightMargin = 10;
+            seekBar.setLayoutParams(seekBarParams);
+
+            // 增大按钮
+            MaterialButton btnIncrease = new MaterialButton(themedContext);
+            btnIncrease.setText("+");
+            btnIncrease.setTextSize(18);
+            LinearLayout.LayoutParams increaseParams = new LinearLayout.LayoutParams(
+                    60,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            btnIncrease.setLayoutParams(increaseParams);
+
+            sliderContainer.addView(btnDecrease);
+            sliderContainer.addView(seekBar);
+            sliderContainer.addView(btnIncrease);
+            panel.addView(sliderContainer);
+
+            // 按钮容器
+            LinearLayout buttonContainer = new LinearLayout(themedContext);
+            buttonContainer.setOrientation(LinearLayout.HORIZONTAL);
+            buttonContainer.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams buttonContainerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            buttonContainerParams.topMargin = 20;
+            buttonContainer.setLayoutParams(buttonContainerParams);
+
+            // 确定按钮
+            MaterialButton btnConfirm = new MaterialButton(themedContext);
+            btnConfirm.setText("确定");
+            LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            confirmParams.rightMargin = 10;
+            btnConfirm.setLayoutParams(confirmParams);
+
+            // 取消按钮
+            MaterialButton btnCancel = new MaterialButton(themedContext);
+            btnCancel.setText("取消");
+            LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            cancelParams.leftMargin = 10;
+            btnCancel.setLayoutParams(cancelParams);
+
+            buttonContainer.addView(btnConfirm);
+            buttonContainer.addView(btnCancel);
+            panel.addView(buttonContainer);
+
+            // 滑动条监听
+            seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                    float newScale = 0.5f + progress * 0.1f;
+                    sizeText.setText(String.format("当前: %.1f倍", newScale));
+                    if (fromUser) {
+                        currentFontScale = newScale;
+                        updateMenuFontSize();
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+
+                @Override
+                public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+            });
+
+            // 减小按钮监听
+            btnDecrease.setOnClickListener(v -> {
+                int progress = seekBar.getProgress();
+                if (progress > 0) {
+                    seekBar.setProgress(progress - 1);
+                }
+            });
+
+            // 增大按钮监听
+            btnIncrease.setOnClickListener(v -> {
+                int progress = seekBar.getProgress();
+                if (progress < 20) {
+                    seekBar.setProgress(progress + 1);
+                }
+            });
+
+            // 确定按钮监听
+            btnConfirm.setOnClickListener(v -> {
+                saveFontScale();
+                hideFontSizePanel();
+                Toast.makeText(this, "字体大小已保存", Toast.LENGTH_SHORT).show();
+            });
+
+            // 取消按钮监听
+            btnCancel.setOnClickListener(v -> {
+                // 恢复原来的字体大小
+                android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+                currentFontScale = prefs.getFloat(KEY_FONT_SCALE, DEFAULT_FONT_SCALE);
+                updateMenuFontSize();
+                hideFontSizePanel();
+            });
+
+            fontSizePanel = panel;
+
+            // 添加到窗口
+            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                    400,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    layoutType,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+            );
+            params.gravity = Gravity.CENTER;
+
+            windowManager.addView(fontSizePanel, params);
+            isFontPanelVisible = true;
+
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "显示字体调整面板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 隐藏字体大小调整面板
+     */
+    private void hideFontSizePanel() {
+        if (!isFontPanelVisible) return;
+        try {
+            if (fontSizePanel != null && fontSizePanel.isAttachedToWindow()) {
+                windowManager.removeView(fontSizePanel);
+                fontSizePanel = null;
+            }
+            isFontPanelVisible = false;
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "隐藏字体调整面板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 更新菜单字体大小
+     */
+    private void updateMenuFontSize() {
+        if (floatingMenu == null) return;
+
+        LinearLayout container = floatingMenu.findViewById(R.id.content_container);
+        if (container == null) return;
+
+        // 遍历所有子View更新字体大小
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+
+            // 更新文本行
+            if (child instanceof android.widget.TextView && "text_row".equals(child.getTag())) {
+                ((android.widget.TextView) child).setTextSize(14 * currentFontScale);
+            }
+
+            // 更新按钮行
+            if (child instanceof LinearLayout) {
+                LinearLayout row = (LinearLayout) child;
+                for (int j = 0; j < row.getChildCount(); j++) {
+                    View frameView = row.getChildAt(j);
+                    if (frameView instanceof android.widget.FrameLayout) {
+                        android.widget.FrameLayout frame = (android.widget.FrameLayout) frameView;
+                        for (int k = 0; k < frame.getChildCount(); k++) {
+                            View btnView = frame.getChildAt(k);
+                            // 更新按钮文字
+                            if (btnView instanceof MaterialButton && "btn_text".equals(btnView.getTag())) {
+                                ((MaterialButton) btnView).setTextSize(13 * currentFontScale);
+                            }
+                            // 更新badge文字
+                            if (btnView instanceof android.widget.TextView && "badge_text".equals(btnView.getTag())) {
+                                ((android.widget.TextView) btnView).setTextSize(9 * currentFontScale);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 保存字体缩放比例
+     */
+    private void saveFontScale() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        prefs.edit().putFloat(KEY_FONT_SCALE, currentFontScale).apply();
     }
 
     /**
