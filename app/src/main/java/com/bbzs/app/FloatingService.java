@@ -10,6 +10,7 @@ import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -614,15 +615,50 @@ public class FloatingService extends Service {
      * 打开淘宝链接
      */
     private void openTaobaoUrl(String url) {
+        // URL有效性验证
+        if (url == null || url.trim().isEmpty()) {
+            Log.e("FloatingService", "URL is null or empty");
+            Toast.makeText(this, "链接地址无效", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // URL格式验证
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            Log.e("FloatingService", "Invalid URL format: " + url);
+            Toast.makeText(this, "链接格式无效", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.setPackage("com.taobao.taobao");
+
+            // 只对特定淘宝域名使用setPackage，其他URL让系统自动选择
+            if (url.contains("pages.tmall.com") ||
+                url.contains("pages-fast.m.taobao.com") ||
+                url.contains("market.m.taobao.com") ||
+                url.contains("main.m.taobao.com") ||
+                url.contains("tyssr.m.taobao.com") ||
+                url.contains("ku.m.taobao.com") ||
+                url.contains("mo.m.taobao.com") ||
+                url.contains("mos.m.taobao.com") ||
+                url.contains("s.m.taobao.com") ||
+                url.contains("web.m.taobao.com")) {
+                intent.setPackage("com.taobao.taobao");
+            }
+
             startActivity(intent);
         } catch (Exception e) {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            startActivity(intent);
+            Log.e("FloatingService", "Failed to open URL with package: " + url, e);
+            // 失败时不指定包名，让系统处理
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+            } catch (Exception ex) {
+                Log.e("FloatingService", "Failed to open URL without package: " + url, ex);
+                Toast.makeText(this, "打开链接失败: " + ex.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -636,6 +672,13 @@ public class FloatingService extends Service {
             int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
+
+            // 获取屏幕尺寸
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            int screenWidth = dm.widthPixels;
+            int horizontalMargin = 120;
+            int panelWidth = screenWidth - horizontalMargin * 2;
 
             // 创建面板布局
             LinearLayout panel = new LinearLayout(themedContext);
@@ -757,10 +800,8 @@ public class FloatingService extends Service {
                 public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                     float newScale = 0.5f + progress * 0.1f;
                     sizeText.setText(String.format("当前: %.1f倍", newScale));
-                    if (fromUser) {
-                        currentFontScale = newScale;
-                        updateMenuFontSize();
-                    }
+                    currentFontScale = newScale;
+                    updateMenuFontSize();
                 }
 
                 @Override
@@ -775,6 +816,10 @@ public class FloatingService extends Service {
                 int progress = seekBar.getProgress();
                 if (progress > 0) {
                     seekBar.setProgress(progress - 1);
+                    float newScale = 0.5f + (progress - 1) * 0.1f;
+                    sizeText.setText(String.format("当前: %.1f倍", newScale));
+                    currentFontScale = newScale;
+                    updateMenuFontSize();
                 }
             });
 
@@ -783,6 +828,10 @@ public class FloatingService extends Service {
                 int progress = seekBar.getProgress();
                 if (progress < 20) {
                     seekBar.setProgress(progress + 1);
+                    float newScale = 0.5f + (progress + 1) * 0.1f;
+                    sizeText.setText(String.format("当前: %.1f倍", newScale));
+                    currentFontScale = newScale;
+                    updateMenuFontSize();
                 }
             });
 
@@ -806,7 +855,7 @@ public class FloatingService extends Service {
 
             // 添加到窗口
             WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                    400,
+                    panelWidth,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
