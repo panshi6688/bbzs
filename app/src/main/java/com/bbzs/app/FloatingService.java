@@ -35,6 +35,7 @@ public class FloatingService extends Service {
     private WindowManager windowManager;
     private View floatingIcon;
     private View floatingMenu;
+    private View overlayMask; // 全屏透明遮罩层，拦截菜单外部点击
     private WindowManager.LayoutParams iconParams;
     private WindowManager.LayoutParams menuParams;
     private boolean isMenuVisible = false;
@@ -82,6 +83,9 @@ public class FloatingService extends Service {
         if (floatingIcon != null) windowManager.removeView(floatingIcon);
         if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
             windowManager.removeView(floatingMenu);
+        }
+        if (overlayMask != null && overlayMask.isAttachedToWindow()) {
+            windowManager.removeView(overlayMask);
         }
     }
 
@@ -365,12 +369,12 @@ public class FloatingService extends Service {
         }
         frame.setLayoutParams(frameParams);
 
-        // 判断是否有badge
         boolean hasBadge = data.badge != null && !data.badge.isEmpty();
 
         // 使用OutlinedButton样式，白色背景
         MaterialButton btn = new MaterialButton(themedContext, null,
                 com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btn.setText(data.text);
         btn.setTextSize(11);
         btn.setMinHeight(44);
         btn.setCornerRadius(8);
@@ -380,24 +384,7 @@ public class FloatingService extends Service {
         btn.setTextColor(0xFF333333);
         btn.setInsetTop(0);
         btn.setInsetBottom(0);
-        btn.setPadding(4, 2, 4, 2);
-
-        // 如果有badge，将badge文字和按钮文字组合显示
-        if (hasBadge) {
-            String fullText = data.badge + "\n" + data.text;
-            android.text.SpannableString spannable = new android.text.SpannableString(fullText);
-            // badge部分：小字、橙色
-            spannable.setSpan(new android.text.style.AbsoluteSizeSpan(9, true), 0, data.badge.length(),
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            spannable.setSpan(new android.text.style.ForegroundColorSpan(0xFFFF6200), 0, data.badge.length(),
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            // 主文字部分
-            spannable.setSpan(new android.text.style.AbsoluteSizeSpan(11, true), data.badge.length() + 1, fullText.length(),
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            btn.setText(spannable);
-        } else {
-            btn.setText(data.text);
-        }
+        btn.setPadding(4, 4, 4, 4);
 
         android.widget.FrameLayout.LayoutParams btnParams = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
@@ -407,8 +394,26 @@ public class FloatingService extends Service {
 
         final String url = data.url;
         btn.setOnClickListener(v -> openTaobaoUrl(url));
-
         frame.addView(btn);
+
+        // badge在按钮内部右上角显示
+        if (hasBadge) {
+            android.widget.TextView badge = new android.widget.TextView(themedContext);
+            badge.setText(data.badge);
+            badge.setTextSize(8);
+            badge.setTextColor(0xFFFF6200);
+            android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.END | android.view.Gravity.TOP
+            );
+            // 设置足够的margin确保在按钮圆角内部显示
+            badgeParams.topMargin = 6;
+            badgeParams.rightMargin = 8;
+            badge.setLayoutParams(badgeParams);
+            frame.addView(badge);
+        }
+
         row.addView(frame);
     }
 
@@ -443,8 +448,8 @@ public class FloatingService extends Service {
             windowManager.getDefaultDisplay().getMetrics(dm);
             int screenWidth = dm.widthPixels;
             int screenHeight = dm.heightPixels;
-            int horizontalMargin = 120; // 左右边距120px
-            int verticalMargin = 200; // 上下边距200px（内容过多时）
+            int horizontalMargin = 120;
+            int verticalMargin = 200;
             int menuWidth = screenWidth - horizontalMargin * 2;
 
             // 先测量菜单内容实际高度
@@ -454,30 +459,33 @@ public class FloatingService extends Service {
             );
             int contentHeight = floatingMenu.getMeasuredHeight();
             int maxHeight = screenHeight - verticalMargin * 2;
-
-            // 如果内容高度小于最大高度，使用内容高度；否则使用最大高度
             int menuHeight = Math.min(contentHeight, maxHeight);
 
+            // 1. 先添加全屏透明遮罩层，拦截外部点击
+            overlayMask = new View(this);
+            overlayMask.setBackgroundColor(0x01000000); // 几乎全透明，但能拦截触摸
+            WindowManager.LayoutParams maskParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    layoutType,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+            );
+            overlayMask.setOnClickListener(v -> hideMenu());
+            windowManager.addView(overlayMask, maskParams);
+
+            // 2. 再添加菜单面板
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
-
-            // 设置外部点击隐藏
-            floatingMenu.setOnTouchListener((v, event) -> {
-                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
-                    hideMenu();
-                    return true;
-                }
-                return false;
-            });
 
             android.util.Log.d("FloatingService", "功能菜单已显示");
         } catch (Exception e) {
@@ -494,6 +502,10 @@ public class FloatingService extends Service {
         try {
             if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
                 windowManager.removeView(floatingMenu);
+            }
+            if (overlayMask != null && overlayMask.isAttachedToWindow()) {
+                windowManager.removeView(overlayMask);
+                overlayMask = null;
             }
             isMenuVisible = false;
             android.util.Log.d("FloatingService", "功能菜单已隐藏");
