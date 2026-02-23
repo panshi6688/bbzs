@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.NotificationCompat;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.tabs.TabLayout;
 
 /**
  * 悬浮窗服务：管理悬浮图标和功能菜单
@@ -34,7 +35,9 @@ public class FloatingService extends Service {
     private static final String CHANNEL_ID = "bbzs_floating_channel";
     private static final String PREF_NAME = "bbzs_settings";
     private static final String KEY_FONT_SCALE = "font_scale";
+    private static final String KEY_QUICK_ACCESS = "quick_access_";
     private static final float DEFAULT_FONT_SCALE = 1.0f; // 默认字体缩放比例
+    private static final int MAX_QUICK_ACCESS = 4; // 快速访问位置数量
 
     private WindowManager windowManager;
     private View floatingIcon;
@@ -47,6 +50,15 @@ public class FloatingService extends Service {
     private boolean isFontPanelVisible = false;
     private android.content.Context themedContext; // 带主题的Context，用于创建Material组件
     private float currentFontScale = DEFAULT_FONT_SCALE; // 当前字体缩放比例
+    
+    // 标签页相关
+    private TabLayout tabLayout;
+    private LinearLayout contentContainer;
+    private int currentTabIndex = 0; // 当前选中的标签索引
+    
+    // 快速访问相关
+    private LinearLayout quickAccessContainer;
+    private java.util.List<ButtonData> quickAccessButtons = new java.util.ArrayList<>();
 
     // 按钮数据结构
     private static class ButtonData {
@@ -225,7 +237,38 @@ public class FloatingService extends Service {
             // 右上角更多菜单
             floatingMenu.findViewById(R.id.iv_menu_more).setOnClickListener(this::showPopupMenu);
 
-            // 添加按钮
+            // 初始化TabLayout
+            tabLayout = floatingMenu.findViewById(R.id.tab_layout);
+            contentContainer = floatingMenu.findViewById(R.id.content_container);
+            quickAccessContainer = floatingMenu.findViewById(R.id.quick_access_container);
+            
+            // 添加标签
+            tabLayout.addTab(tabLayout.newTab().setText("全部功能"));
+            tabLayout.addTab(tabLayout.newTab().setText("三元三件"));
+            tabLayout.addTab(tabLayout.newTab().setText("兑换过肥料"));
+            
+            // 标签切换监听
+            tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+                @Override
+                public void onTabSelected(TabLayout.Tab tab) {
+                    currentTabIndex = tab.getPosition();
+                    updateContentForTab(currentTabIndex);
+                }
+
+                @Override
+                public void onTabUnselected(TabLayout.Tab tab) {}
+
+                @Override
+                public void onTabReselected(TabLayout.Tab tab) {}
+            });
+
+            // 加载快速访问按钮
+            loadQuickAccessButtons();
+            
+            // 初始化快速访问区域
+            updateQuickAccessView();
+            
+            // 添加按钮到"全部功能"标签
             addButtonsToMenu();
 
             android.util.Log.d("FloatingService", "功能菜单初始化成功");
@@ -238,14 +281,14 @@ public class FloatingService extends Service {
      * 添加所有按钮到菜单
      */
     private void addButtonsToMenu() {
-        LinearLayout container = floatingMenu.findViewById(R.id.content_container);
-        if (container == null) return;
+        if (contentContainer == null) return;
+        contentContainer.removeAllViews(); // 清空现有内容
 
         // 第一行提示
-        addTextRow(container, "部分肥料页每日需进入一次农场激活");
+        addTextRow(contentContainer, "部分肥料页每日需进入一次农场激活");
 
         // 第一组：10W, 6W, 5W, 4W1
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("10W", "10次", UrlConstants.URL_10W),
                 new ButtonData("6W", "1次", UrlConstants.URL_6W),
                 new ButtonData("5W", "10次", UrlConstants.URL_5W),
@@ -253,7 +296,7 @@ public class FloatingService extends Service {
         });
 
         // 第二组：4W2, 3W1, 3W2, 3W3
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("4W2", "1次", UrlConstants.URL_4W2),
                 new ButtonData("3W1", "10次", UrlConstants.URL_3W1),
                 new ButtonData("3W2", "3次", UrlConstants.URL_3W2),
@@ -261,7 +304,7 @@ public class FloatingService extends Service {
         });
 
         // 第三组：3W4, 集汗滴, 乐游记, 大富翁
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
                 new ButtonData("集汗滴", "乐动力", UrlConstants.URL_JIHANDI),
                 new ButtonData("乐游记", "乐动力", UrlConstants.URL_LEYOUJI),
@@ -269,7 +312,7 @@ public class FloatingService extends Service {
         });
 
         // 第四组：限时补贴, 芭芭农场, 肥料明细, 农场兑换
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("限时补贴", "乐动力", UrlConstants.URL_XIANSHI_BUTIE),
                 new ButtonData("芭芭农场", "", UrlConstants.URL_BABA_FARM),
                 new ButtonData("肥料明细", "", UrlConstants.URL_FEILIAO_MINGXI),
@@ -277,7 +320,7 @@ public class FloatingService extends Service {
         });
 
         // 第五组：阳光农场, 代付款, 购物车, 三元三件
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("阳光农场", "", UrlConstants.URL_YANGGUANG_FARM),
                 new ButtonData("代付款", "", UrlConstants.URL_DAIFUKUAN),
                 new ButtonData("购物车", "", UrlConstants.URL_GOUWUCHE),
@@ -285,7 +328,7 @@ public class FloatingService extends Service {
         });
 
         // 第六组：500阳光, 地址管理, 88VIP中心, 一键退会
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("500阳光", "", UrlConstants.URL_500_YANGGUANG),
                 new ButtonData("地址管理", "", UrlConstants.URL_DIZHI_GUANLI),
                 new ButtonData("88VIP中心", "", UrlConstants.URL_88VIP),
@@ -293,10 +336,10 @@ public class FloatingService extends Service {
         });
 
         // 红包区域提示
-        addTextRow(container, "红包区域");
+        addTextRow(contentContainer, "红包区域");
 
         // 第七组：农场秒杀, 秒杀频道, 签到现金, 签到福利
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("农场秒杀", "", UrlConstants.URL_NONGCHANG_MIAOSHA),
                 new ButtonData("秒杀频道", "", UrlConstants.URL_MIAOSHA_PINDAO),
                 new ButtonData("签到现金", "", UrlConstants.URL_QIANDAO_XIANJIN),
@@ -304,7 +347,7 @@ public class FloatingService extends Service {
         });
 
         // 第八组：省钱购, 福利购, 有好券, U选好价
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("省钱购", "", UrlConstants.URL_SHENGQIAN_GOU),
                 new ButtonData("福利购", "", UrlConstants.URL_FULI_GOU),
                 new ButtonData("有好券", "", UrlConstants.URL_YOUHAO_QUAN),
@@ -312,7 +355,7 @@ public class FloatingService extends Service {
         });
 
         // 第九组：喜从天降, 拍拍乐, 淘金币, 淘出666
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("喜从天降", "", UrlConstants.URL_XICONG_TIANJIAN),
                 new ButtonData("拍拍乐", "", UrlConstants.URL_PAIPAILE),
                 new ButtonData("淘金币", "", UrlConstants.URL_TAOJINBI),
@@ -320,7 +363,7 @@ public class FloatingService extends Service {
         });
 
         // 第十组：淘宝密码, 百亿补贴, 淘宝成就, 天天砸金蛋
-        addButtonRow(container, new ButtonData[]{
+        addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("淘宝密码", "", UrlConstants.URL_TAOBAO_MIMA),
                 new ButtonData("百亿补贴", "", UrlConstants.URL_BAIYI_BUTIE),
                 new ButtonData("淘宝成就", "", UrlConstants.URL_TAOBAO_CHENGJIU),
@@ -409,7 +452,17 @@ public class FloatingService extends Service {
         btn.setLayoutParams(btnParams);
 
         final String url = data.url;
-        btn.setOnClickListener(v -> openTaobaoUrl(url));
+        btn.setOnClickListener(v -> {
+            openTaobaoUrl(url);
+            hideMenu(); // 点击按钮后隐藏菜单
+        });
+        
+        // 长按添加到快速访问
+        btn.setOnLongClickListener(v -> {
+            showQuickAccessDialog(data);
+            return true;
+        });
+        
         frame.addView(btn);
 
         // badge在按钮内部右上角显示
@@ -546,6 +599,9 @@ public class FloatingService extends Service {
                     return true;
                 } else if (id == R.id.menu_font_size) {
                     showFontSizePanel();
+                    return true;
+                } else if (id == R.id.menu_qq_group) {
+                    openQQGroup();
                     return true;
                 } else if (id == R.id.menu_help) {
                     showHelpDialog();
@@ -967,6 +1023,246 @@ public class FloatingService extends Service {
         } catch (Exception e) {
             android.util.Log.e("FloatingService", "隐藏字体调整面板失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 打开QQ群
+     */
+    private void openQQGroup() {
+        String qqGroupUrl = "https://qm.qq.com/q/uB99c1OcDu";
+        try {
+            // 尝试打开QQ
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupUrl));
+            intent.setPackage("com.tencent.mobileqq");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Log.d("FloatingService", "已打开QQ群");
+        } catch (Exception e) {
+            // QQ未安装，使用浏览器打开
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupUrl));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                Log.d("FloatingService", "使用浏览器打开QQ群链接");
+            } catch (Exception ex) {
+                Log.e("FloatingService", "打开QQ群失败: " + ex.getMessage(), ex);
+                Toast.makeText(this, "打开失败", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    /**
+     * 更新标签页内容
+     */
+    private void updateContentForTab(int tabIndex) {
+        if (contentContainer == null) return;
+        contentContainer.removeAllViews();
+        
+        switch (tabIndex) {
+            case 0: // 全部功能
+                addButtonsToMenu();
+                break;
+            case 1: // 三元三件
+                addTextRow(contentContainer, "三元三件功能开发中...");
+                break;
+            case 2: // 兑换过肥料
+                addTextRow(contentContainer, "兑换过肥料功能开发中...");
+                break;
+        }
+    }
+
+    /**
+     * 加载快速访问按钮
+     */
+    private void loadQuickAccessButtons() {
+        quickAccessButtons.clear();
+        android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        for (int i = 0; i < MAX_QUICK_ACCESS; i++) {
+            String data = prefs.getString(KEY_QUICK_ACCESS + i, null);
+            if (data != null && !data.isEmpty()) {
+                String[] parts = data.split("\\|");
+                if (parts.length == 3) {
+                    quickAccessButtons.add(new ButtonData(parts[0], parts[1], parts[2]));
+                } else {
+                    quickAccessButtons.add(null);
+                }
+            } else {
+                quickAccessButtons.add(null);
+            }
+        }
+    }
+
+    /**
+     * 保存快速访问按钮
+     */
+    private void saveQuickAccessButtons() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        
+        for (int i = 0; i < quickAccessButtons.size(); i++) {
+            ButtonData data = quickAccessButtons.get(i);
+            if (data != null) {
+                editor.putString(KEY_QUICK_ACCESS + i, data.text + "|" + data.badge + "|" + data.url);
+            } else {
+                editor.remove(KEY_QUICK_ACCESS + i);
+            }
+        }
+        editor.apply();
+    }
+
+    /**
+     * 更新快速访问视图
+     */
+    private void updateQuickAccessView() {
+        if (quickAccessContainer == null) return;
+        quickAccessContainer.removeAllViews();
+        
+        for (int i = 0; i < MAX_QUICK_ACCESS; i++) {
+            final int index = i;
+            ButtonData data = i < quickAccessButtons.size() ? quickAccessButtons.get(i) : null;
+            
+            android.widget.FrameLayout frame = new android.widget.FrameLayout(themedContext);
+            LinearLayout.LayoutParams frameParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            if (i < MAX_QUICK_ACCESS - 1) {
+                frameParams.rightMargin = 4;
+            }
+            frame.setLayoutParams(frameParams);
+            
+            if (data == null) {
+                // 空位置，显示添加图标
+                MaterialButton btn = new MaterialButton(themedContext, null,
+                        com.google.android.material.R.attr.materialButtonOutlinedStyle);
+                btn.setText("+");
+                btn.setTextSize(16 * currentFontScale);
+                btn.setMinHeight(44);
+                btn.setCornerRadius(8);
+                btn.setStrokeWidth(1);
+                btn.setStrokeColorResource(android.R.color.darker_gray);
+                btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFF5F5F5));
+                btn.setTextColor(0xFF999999);
+                btn.setOnClickListener(v -> Toast.makeText(this, "长按功能按钮添加到快速访问", Toast.LENGTH_SHORT).show());
+                frame.addView(btn);
+            } else {
+                // 已添加的按钮
+                MaterialButton btn = new MaterialButton(themedContext, null,
+                        com.google.android.material.R.attr.materialButtonOutlinedStyle);
+                btn.setText(data.text);
+                btn.setTextSize(13 * currentFontScale);
+                btn.setMinHeight(44);
+                btn.setCornerRadius(8);
+                btn.setStrokeWidth(1);
+                btn.setStrokeColorResource(android.R.color.darker_gray);
+                btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
+                btn.setTextColor(0xFF333333);
+                
+                final String url = data.url;
+                btn.setOnClickListener(v -> {
+                    openTaobaoUrl(url);
+                    hideMenu();
+                });
+                
+                // 长按移除
+                btn.setOnLongClickListener(v -> {
+                    showRemoveQuickAccessDialog(index);
+                    return true;
+                });
+                
+                frame.addView(btn);
+                
+                // 添加badge
+                if (data.badge != null && !data.badge.isEmpty()) {
+                    android.widget.TextView badge = new android.widget.TextView(themedContext);
+                    badge.setText(data.badge);
+                    badge.setTextSize(9 * currentFontScale);
+                    badge.setTextColor(0xFFFF6200);
+                    android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                            android.view.Gravity.END | android.view.Gravity.TOP
+                    );
+                    badgeParams.topMargin = 6;
+                    badgeParams.rightMargin = 8;
+                    badge.setLayoutParams(badgeParams);
+                    frame.addView(badge);
+                }
+            }
+            
+            quickAccessContainer.addView(frame);
+        }
+    }
+
+    /**
+     * 显示添加到快速访问的对话框
+     */
+    private void showQuickAccessDialog(ButtonData data) {
+        // 查找空位置
+        int emptyIndex = -1;
+        for (int i = 0; i < MAX_QUICK_ACCESS; i++) {
+            if (i >= quickAccessButtons.size() || quickAccessButtons.get(i) == null) {
+                emptyIndex = i;
+                break;
+            }
+        }
+        
+        if (emptyIndex == -1) {
+            Toast.makeText(this, "快速访问位置已满，长按已有按钮可移除", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        final int index = emptyIndex;
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("添加到快速访问")
+                .setMessage("是否将\"" + data.text + "\"添加到快速访问？")
+                .setPositiveButton("添加", (dialog, which) -> {
+                    while (quickAccessButtons.size() <= index) {
+                        quickAccessButtons.add(null);
+                    }
+                    quickAccessButtons.set(index, data);
+                    saveQuickAccessButtons();
+                    updateQuickAccessView();
+                    Toast.makeText(this, "已添加到快速访问", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("取消", null);
+        
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
+    }
+
+    /**
+     * 显示移除快速访问的对话框
+     */
+    private void showRemoveQuickAccessDialog(int index) {
+        ButtonData data = quickAccessButtons.get(index);
+        if (data == null) return;
+        
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("移除快速访问")
+                .setMessage("是否将\"" + data.text + "\"从快速访问移除？")
+                .setPositiveButton("移除", (dialog, which) -> {
+                    quickAccessButtons.set(index, null);
+                    saveQuickAccessButtons();
+                    updateQuickAccessView();
+                    Toast.makeText(this, "已移除", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("取消", null);
+        
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
     }
 
     /**

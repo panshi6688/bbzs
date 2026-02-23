@@ -47,6 +47,34 @@
         android:layout_height="1dp"
         android:background="#EEEEEE" />
 
+    <!-- 快速访问区域 -->
+    <LinearLayout
+        android:id="@+id/quick_access_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center">
+    </LinearLayout>
+
+    <!-- 分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE" />
+
+    <!-- 标签栏 -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tab_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        app:tabMode="fixed"
+        app:tabGravity="fill"
+        app:tabTextColor="#666666"
+        app:tabSelectedTextColor="#FF6200"
+        app:tabIndicatorColor="#FF6200" />
+
     <!-- 滚动内容区域 -->
     <ScrollView
         android:layout_width="match_parent"
