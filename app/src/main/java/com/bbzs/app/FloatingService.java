@@ -246,6 +246,11 @@ public class FloatingService extends Service {
             tabLayout.addTab(tabLayout.newTab().setText("全部功能"));
             tabLayout.addTab(tabLayout.newTab().setText("三元三件"));
             tabLayout.addTab(tabLayout.newTab().setText("兑换过肥"));
+            tabLayout.addTab(tabLayout.newTab().setText("地址生成"));
+            tabLayout.addTab(tabLayout.newTab().setText("查违禁店"));
+            
+            // 设置标签模式为可滚动，以适应更多标签
+            tabLayout.setTabMode(TabLayout.MODE_SCROLLABLE);
             
             // 标签切换监听
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
@@ -373,12 +378,12 @@ public class FloatingService extends Service {
         // 点淘区域提示
         addTextRow(contentContainer, "点淘区域");
 
-        // 第十一组：店铺主页
+        // 第十一组：店铺主页, 购物车, 代付款
         addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP),
-                null, // 空位
-                null, // 空位
-                null  // 空位
+                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
+                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
+                null // 空位
         });
     }
 
@@ -724,13 +729,15 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
-            // 点淘店铺链接特殊处理
-            if (url.equals(UrlConstants.URL_DIANTAO_SHOP)) {
+            // 点淘相关链接特殊处理
+            if (url.equals(UrlConstants.URL_DIANTAO_SHOP) || 
+                url.equals(UrlConstants.URL_DIANTAO_CART) || 
+                url.equals(UrlConstants.URL_DIANTAO_DAIFUKUAN)) {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 intent.setPackage("com.taobao.live");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(intent);
-                Log.d("FloatingService", "Opened Diantao shop");
+                Log.d("FloatingService", "Opened with Diantao app");
                 return;
             }
             
@@ -1073,25 +1080,18 @@ public class FloatingService extends Service {
      * 打开QQ群
      */
     private void openQQGroup() {
-        String qqGroupUrl = "https://qm.qq.com/q/uB99c1OcDu";
+        String qqGroupScheme = "mqqapi://card/show_pslcard?src_type=internal&version=1&uin=927046503&card_type=group";
         try {
             // 尝试打开QQ
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupUrl));
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupScheme));
             intent.setPackage("com.tencent.mobileqq");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
             Log.d("FloatingService", "已打开QQ群");
         } catch (Exception e) {
-            // QQ未安装，使用浏览器打开
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupUrl));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                Log.d("FloatingService", "使用浏览器打开QQ群链接");
-            } catch (Exception ex) {
-                Log.e("FloatingService", "打开QQ群失败: " + ex.getMessage(), ex);
-                Toast.makeText(this, "打开失败", Toast.LENGTH_SHORT).show();
-            }
+            // QQ未安装或打开失败
+            Log.e("FloatingService", "打开QQ群失败: " + e.getMessage(), e);
+            Toast.makeText(this, "请先安装QQ", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1111,6 +1111,12 @@ public class FloatingService extends Service {
                 break;
             case 2: // 兑换过肥料
                 addDuihuanFeiliao();
+                break;
+            case 3: // 地址生成
+                addTextRow(contentContainer, "地址生成功能开发中...");
+                break;
+            case 4: // 查违禁店
+                addTextRow(contentContainer, "查违禁店功能开发中...");
                 break;
         }
     }
@@ -1143,6 +1149,14 @@ public class FloatingService extends Service {
                 new ButtonData("3W3", "1次", UrlConstants.URL_3W3),
                 new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
                 new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP)
+        });
+
+        // 第四组：购物车, 代付款
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
+                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
+                null, // 空位
+                null  // 空位
         });
 
         // 提示文本

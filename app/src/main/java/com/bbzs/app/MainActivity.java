@@ -74,8 +74,8 @@ public class MainActivity extends AppCompatActivity {
     private void showPermissionDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("首次使用需要悬浮窗权限")
-                .setMessage("本应用需要悬浮窗权限(或开启“允许显示在其他应用的上层”)才能正常使用"+"\n\n"+
-                "接下来将跳转到相应界面请找到“芭芭助手”开启后返回到软件(不要直接回到桌面)")
+                .setMessage("本应用需要悬浮窗权限(或开启“允许显示在其他应用的上层”)才能正常使用"+"\n"+
+                "接下来将跳转到相应界面请找到“芭芭助手”开启后返回到软件或者关闭进程后重启即可 \n只需要首次开启")
                 .setCancelable(false)
                 .setPositiveButton("去开启", (dialog, which) -> {
                     Intent intent = new Intent(

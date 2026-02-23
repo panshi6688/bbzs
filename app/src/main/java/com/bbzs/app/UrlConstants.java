@@ -55,5 +55,7 @@ public class UrlConstants {
     
     // 点淘区域
     public static final String URL_DIANTAO_SHOP = "https://shop294995043.m.taobao.com/?refer=https%3A%2F%2Fm.tb.cn%2F&shop_navi=shopindex";
+    public static final String URL_DIANTAO_CART = "https://main.m.taobao.com/cart/index.html?spm=a2141.7631565.tbshopmod-photo_retouch.21&spm=a2141.7631565.tbshopmod-photo_retouch.18";
+    public static final String URL_DIANTAO_DAIFUKUAN = "https://main.m.taobao.com/olist/index.html?tabCode=waitPay";
 }
 
