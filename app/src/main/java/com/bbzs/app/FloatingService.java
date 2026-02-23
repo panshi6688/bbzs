@@ -243,14 +243,27 @@ public class FloatingService extends Service {
             quickAccessContainer = floatingMenu.findViewById(R.id.quick_access_container);
             
             // 添加标签
-            tabLayout.addTab(tabLayout.newTab().setText("全部功能"));
-            tabLayout.addTab(tabLayout.newTab().setText("三元三件"));
-            tabLayout.addTab(tabLayout.newTab().setText("兑换过肥"));
-            tabLayout.addTab(tabLayout.newTab().setText("地址生成"));
-            tabLayout.addTab(tabLayout.newTab().setText("查违禁店"));
+            tabLayout.addTab(tabLayout.newTab().setText("全部\n功能"));
+            tabLayout.addTab(tabLayout.newTab().setText("三元\n三件"));
+            tabLayout.addTab(tabLayout.newTab().setText("兑换过\n肥料"));
+            tabLayout.addTab(tabLayout.newTab().setText("地址\n生成"));
+            tabLayout.addTab(tabLayout.newTab().setText("查违\n禁店"));
             
             // 设置标签模式为可滚动，以适应更多标签
             tabLayout.setTabMode(TabLayout.MODE_SCROLLABLE);
+            
+            // 设置标签文本居中和多行显示
+            for (int i = 0; i < tabLayout.getTabCount(); i++) {
+                TabLayout.Tab tab = tabLayout.getTabAt(i);
+                if (tab != null && tab.view != null) {
+                    android.widget.TextView textView = (android.widget.TextView) tab.view.findViewById(com.google.android.material.R.id.text);
+                    if (textView != null) {
+                        textView.setGravity(android.view.Gravity.CENTER);
+                        textView.setMaxLines(2);
+                        textView.setSingleLine(false);
+                    }
+                }
+            }
             
             // 标签切换监听
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
@@ -258,6 +271,8 @@ public class FloatingService extends Service {
                 public void onTabSelected(TabLayout.Tab tab) {
                     currentTabIndex = tab.getPosition();
                     updateContentForTab(currentTabIndex);
+                    // 切换标签后刷新菜单高度
+                    refreshMenuHeight();
                 }
 
                 @Override
@@ -1082,6 +1097,9 @@ public class FloatingService extends Service {
     private void openQQGroup() {
         String qqGroupScheme = "mqqapi://card/show_pslcard?src_type=internal&version=1&uin=927046503&card_type=group";
         try {
+            // 隐藏功能菜单
+            hideMenu();
+            
             // 尝试打开QQ
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(qqGroupScheme));
             intent.setPackage("com.tencent.mobileqq");
@@ -1092,6 +1110,42 @@ public class FloatingService extends Service {
             // QQ未安装或打开失败
             Log.e("FloatingService", "打开QQ群失败: " + e.getMessage(), e);
             Toast.makeText(this, "请先安装QQ", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * 刷新菜单高度
+     */
+    private void refreshMenuHeight() {
+        if (!isMenuVisible || floatingMenu == null) return;
+
+        try {
+            // 获取屏幕尺寸
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            int screenWidth = dm.widthPixels;
+            int screenHeight = dm.heightPixels;
+            int horizontalMargin = 120;
+            int verticalMargin = 200;
+            int menuWidth = screenWidth - horizontalMargin * 2;
+
+            // 重新测量菜单内容实际高度
+            floatingMenu.measure(
+                    View.MeasureSpec.makeMeasureSpec(menuWidth, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            );
+            int contentHeight = floatingMenu.getMeasuredHeight();
+            int maxHeight = screenHeight - verticalMargin * 2;
+            int menuHeight = Math.min(contentHeight, maxHeight);
+
+            // 更新菜单布局参数
+            if (menuParams != null) {
+                menuParams.height = menuHeight;
+                windowManager.updateViewLayout(floatingMenu, menuParams);
+                Log.d("FloatingService", "菜单高度已刷新: " + menuHeight);
+            }
+        } catch (Exception e) {
+            Log.e("FloatingService", "刷新菜单高度失败: " + e.getMessage(), e);
         }
     }
 

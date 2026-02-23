@@ -69,11 +69,16 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#FFFFFF"
-        app:tabMode="fixed"
+        app:tabMode="scrollable"
         app:tabGravity="fill"
         app:tabTextColor="#666666"
         app:tabSelectedTextColor="#FF6200"
-        app:tabIndicatorColor="#FF6200" />
+        app:tabIndicatorColor="#FF6200"
+        app:tabMinWidth="48dp"
+        app:tabMaxWidth="60dp"
+        app:tabPaddingStart="4dp"
+        app:tabPaddingEnd="4dp"
+        app:tabTextAppearance="@style/TabTextStyle" />
 
     <!-- 滚动内容区域 -->
     <ScrollView
