@@ -641,34 +641,15 @@ public class FloatingService extends Service {
                 return;
             }
             
-            // 对其他淘宝/天猫链接，查询能处理的app列表，优先选择淘宝
+            // 对其他淘宝/天猫链接，直接使用淘宝app打开
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
             if (url.contains(".taobao.com") || url.contains(".tmall.com")) {
-                android.content.pm.PackageManager pm = getPackageManager();
-                java.util.List<android.content.pm.ResolveInfo> resolveInfos = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
-                
-                Log.d("FloatingService", "Found " + resolveInfos.size() + " apps that can handle this URL");
-                
-                // 查找淘宝app
-                boolean taobaoFound = false;
-                for (android.content.pm.ResolveInfo resolveInfo : resolveInfos) {
-                    String packageName = resolveInfo.activityInfo.packageName;
-                    Log.d("FloatingService", "  - " + packageName);
-                    
-                    if ("com.taobao.taobao".equals(packageName)) {
-                        // 找到淘宝app，设置package强制使用淘宝
-                        intent.setPackage("com.taobao.taobao");
-                        taobaoFound = true;
-                        Log.d("FloatingService", "Taobao app found, using it");
-                        break;
-                    }
-                }
-                
-                if (!taobaoFound) {
-                    Log.d("FloatingService", "Taobao app not found in handlers, using system default");
-                }
+                // 直接设置package为淘宝，不再使用queryIntentActivities
+                // 因为Android 11+的包可见性限制可能导致查询不到淘宝app
+                intent.setPackage("com.taobao.taobao");
+                Log.d("FloatingService", "Opening Taobao/Tmall URL with Taobao app");
             } else {
                 Log.d("FloatingService", "Using system default handler");
             }
