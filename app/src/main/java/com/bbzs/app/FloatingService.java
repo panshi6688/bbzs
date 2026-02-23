@@ -373,12 +373,12 @@ public class FloatingService extends Service {
         // 点淘区域提示
         addTextRow(contentContainer, "点淘区域");
 
-        // 第十一组：店铺主页, 购物车, 代付款
+        // 第十一组：店铺主页
         addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP),
-                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
-                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
-                null // 空位
+                null, // 空位
+                null, // 空位
+                null  // 空位
         });
     }
 
@@ -713,7 +713,7 @@ public class FloatingService extends Service {
         }
 
         // URL格式验证
-        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("taobao://")) {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
             Log.e("FloatingService", "Invalid URL format: " + url);
             Toast.makeText(this, "链接格式无效", Toast.LENGTH_SHORT).show();
             return;
@@ -724,27 +724,13 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
-            // 处理taobao scheme（包括点淘跳转）
-            if (url.startsWith("taobao://")) {
+            // 点淘店铺链接特殊处理
+            if (url.equals(UrlConstants.URL_DIANTAO_SHOP)) {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.setPackage("com.taobao.live");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                // 如果URL包含点淘包名，尝试用点淘打开
-                if (url.contains("com.taobao.live")) {
-                    try {
-                        intent.setPackage("com.taobao.live");
-                        startActivity(intent);
-                        Log.d("FloatingService", "Opened with Diantao app");
-                        return;
-                    } catch (Exception e) {
-                        Log.w("FloatingService", "Diantao not installed, fallback to Taobao");
-                        // 点淘未安装，使用淘宝打开
-                        intent.setPackage("com.taobao.taobao");
-                    }
-                } else {
-                    intent.setPackage("com.taobao.taobao");
-                }
                 startActivity(intent);
-                Log.d("FloatingService", "Opened Taobao scheme");
+                Log.d("FloatingService", "Opened Diantao shop");
                 return;
             }
             
@@ -1151,27 +1137,16 @@ public class FloatingService extends Service {
                 new ButtonData("3W1", "10次", UrlConstants.URL_3W1)
         });
 
-        // 第三组：3W2, 3W3, 3W4
+        // 第三组：3W2, 3W3, 3W4, 店铺主页
         addButtonRow(contentContainer, new ButtonData[]{
                 new ButtonData("3W2", "3次", UrlConstants.URL_3W2),
                 new ButtonData("3W3", "1次", UrlConstants.URL_3W3),
                 new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
-                null // 空位
+                new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP)
         });
 
         // 提示文本
         addTextRow(contentContainer, "此页仅展示涉及到三元三件的功能");
-
-        // 点淘区域
-        addTextRow(contentContainer, "点淘区域");
-
-        // 第四组：店铺主页, 购物车, 代付款
-        addButtonRow(contentContainer, new ButtonData[]{
-                new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP),
-                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
-                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
-                null // 空位
-        });
     }
 
     /**
