@@ -52,5 +52,10 @@ public class UrlConstants {
     public static final String URL_BAIYI_BUTIE = "https://pages-fast.m.taobao.com/wow/bz/jingmi/1523?x-ssr=true&disableNav=YES&x-preload=true&disableProgress=true&forceThemis=true&spmb=30453896&urlParameter=newer&red_packet_channel=chaohrc&spm=a2141.7631565.tbshopmod-photo_retouch.4";
     public static final String URL_TAOBAO_CHENGJIU = "https://market.m.taobao.com/app/starlink/wakeup-transit/pages/download?star_id=3113&env=miniapp&slk_force_set_request=true&targetUrl=https%3A%2F%2Fm.duanqu.com%3F_ariver_appid%3D3000000027610902%26sourceType%3Dother%26suid%3D15e10d43-8ce9-412f-8a94-bb5539d3dc7f%26short_name%3Dh.7wpq6f6%26app%3Dweixin";
     public static final String URL_TIANTIAN_ZAJINDANG = "https://pages-fast.m.taobao.com/wow/z/app/ltao-fe/tbms-smashing-eggs/home?x-ssr=true&disableProgress=true&x-preload=true&disableNav=YES&skeleton=true&asac=3A25625JD34RZ6TLI11SSN&x-sec=wua&forceThemis=true&status_bar_transparent=true&src=msgongge&short_name=h.7DE4SRA";
+    
+    // 点淘区域
+    public static final String URL_DIANTAO_SHOP = "https://shop294995043.m.taobao.com/?refer=https%3A%2F%2Fm.tb.cn%2F&shop_navi=shopindex";
+    public static final String URL_DIANTAO_CART = "diantao://m.diantao.com/cart";
+    public static final String URL_DIANTAO_DAIFUKUAN = "diantao://m.diantao.com/order/list?status=waitPay";
 }
 

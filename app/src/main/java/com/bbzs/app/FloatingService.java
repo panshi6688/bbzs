@@ -245,7 +245,7 @@ public class FloatingService extends Service {
             // 添加标签
             tabLayout.addTab(tabLayout.newTab().setText("全部功能"));
             tabLayout.addTab(tabLayout.newTab().setText("三元三件"));
-            tabLayout.addTab(tabLayout.newTab().setText("兑换过肥料"));
+            tabLayout.addTab(tabLayout.newTab().setText("兑换过肥"));
             
             // 标签切换监听
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
@@ -368,6 +368,17 @@ public class FloatingService extends Service {
                 new ButtonData("百亿补贴", "", UrlConstants.URL_BAIYI_BUTIE),
                 new ButtonData("淘宝成就", "", UrlConstants.URL_TAOBAO_CHENGJIU),
                 new ButtonData("天天砸金蛋", "", UrlConstants.URL_TIANTIAN_ZAJINDANG)
+        });
+
+        // 点淘区域提示
+        addTextRow(contentContainer, "点淘区域");
+
+        // 第十一组：店铺主页, 购物车, 代付款
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP),
+                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
+                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
+                null // 空位
         });
     }
 
@@ -702,7 +713,7 @@ public class FloatingService extends Service {
         }
 
         // URL格式验证
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("diantao://")) {
             Log.e("FloatingService", "Invalid URL format: " + url);
             Toast.makeText(this, "链接格式无效", Toast.LENGTH_SHORT).show();
             return;
@@ -713,6 +724,16 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
+            // 处理点淘scheme
+            if (url.startsWith("diantao://")) {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.setPackage("com.taobao.live");
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+                Log.d("FloatingService", "Opened Diantao URL with scheme");
+                return;
+            }
+            
             // 对s.m.taobao.com和web.m.taobao.com使用WebView加载，让JS处理跳转
             if (url.contains("s.m.taobao.com") || url.contains("web.m.taobao.com")) {
                 Log.d("FloatingService", "Using WebView to load URL");
@@ -1126,6 +1147,17 @@ public class FloatingService extends Service {
 
         // 提示文本
         addTextRow(contentContainer, "此页仅展示涉及到三元三件的功能");
+
+        // 点淘区域
+        addTextRow(contentContainer, "点淘区域");
+
+        // 第四组：店铺主页, 购物车, 代付款
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("店铺主页", "点淘", UrlConstants.URL_DIANTAO_SHOP),
+                new ButtonData("购物车", "点淘", UrlConstants.URL_DIANTAO_CART),
+                new ButtonData("代付款", "点淘", UrlConstants.URL_DIANTAO_DAIFUKUAN),
+                null // 空位
+        });
     }
 
     /**
