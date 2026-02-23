@@ -636,23 +636,24 @@ public class FloatingService extends Service {
         try {
             Intent intent;
             
-            // 对s.m.taobao.com和web.m.taobao.com使用淘宝的Intent URI scheme
+            // 对s.m.taobao.com和web.m.taobao.com使用淘宝的taobao:// scheme
             if (url.contains("s.m.taobao.com") || url.contains("web.m.taobao.com")) {
-                // 构造淘宝的Intent URI: intent://域名/路径?参数#Intent;scheme=taobaowebview;package=com.taobao.taobao;end
-                String intentUri = url.replace("https://", "intent://")
-                                     .replace("http://", "intent://")
-                                     + "#Intent;scheme=taobaowebview;package=com.taobao.taobao;end";
-                Log.d("FloatingService", "Using Taobao Intent URI: " + intentUri);
+                // 将https://转换为taobao://
+                String taobaoSchemeUrl = url.replace("https://", "taobao://")
+                                           .replace("http://", "taobao://");
+                Log.d("FloatingService", "Using Taobao scheme: " + taobaoSchemeUrl);
                 
                 try {
-                    intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
+                    intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setData(Uri.parse(taobaoSchemeUrl));
+                    intent.setPackage("com.taobao.taobao");
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(intent);
-                    Log.d("FloatingService", "URL opened with Taobao Intent URI");
+                    Log.d("FloatingService", "URL opened with Taobao scheme");
                     return;
                 } catch (Exception e) {
-                    Log.e("FloatingService", "Failed to parse Taobao Intent URI, fallback to normal intent", e);
-                    // 如果Intent URI解析失败，继续使用普通方式
+                    Log.e("FloatingService", "Failed to open with Taobao scheme, fallback to normal intent", e);
+                    // 如果taobao://失败，继续使用普通方式
                 }
             }
             
