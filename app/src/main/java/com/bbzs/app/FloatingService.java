@@ -634,38 +634,52 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            Intent intent;
+            
+            // 对s.m.taobao.com和web.m.taobao.com使用淘宝的Intent URI scheme
+            if (url.contains("s.m.taobao.com") || url.contains("web.m.taobao.com")) {
+                // 构造淘宝的Intent URI: intent://域名/路径?参数#Intent;scheme=taobaowebview;package=com.taobao.taobao;end
+                String intentUri = url.replace("https://", "intent://")
+                                     .replace("http://", "intent://")
+                                     + "#Intent;scheme=taobaowebview;package=com.taobao.taobao;end";
+                Log.d("FloatingService", "Using Taobao Intent URI: " + intentUri);
+                
+                try {
+                    intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
+                    Log.d("FloatingService", "URL opened with Taobao Intent URI");
+                    return;
+                } catch (Exception e) {
+                    Log.e("FloatingService", "Failed to parse Taobao Intent URI, fallback to normal intent", e);
+                    // 如果Intent URI解析失败，继续使用普通方式
+                }
+            }
+            
+            // 对其他淘宝/天猫链接使用标准方式
+            intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
-            // 只对确定支持的淘宝域名使用setPackage
-            // s.m.taobao.com 和 web.m.taobao.com 不设置package，让系统自动选择
-            if (url.contains("pages.tmall.com") ||
-                url.contains("pages-fast.m.taobao.com") ||
-                url.contains("market.m.taobao.com") ||
-                url.contains("main.m.taobao.com") ||
-                url.contains("tyssr.m.taobao.com") ||
-                url.contains("ku.m.taobao.com") ||
-                url.contains("mo.m.taobao.com") ||
-                url.contains("mos.m.taobao.com")) {
-                Log.d("FloatingService", "Using Taobao app package");
+            if (url.contains(".taobao.com") || url.contains(".tmall.com")) {
+                Log.d("FloatingService", "Opening with Taobao app package");
                 intent.setPackage("com.taobao.taobao");
             } else {
                 Log.d("FloatingService", "Using system default handler");
             }
-
+            
             startActivity(intent);
             Log.d("FloatingService", "URL opened successfully");
         } catch (Exception e) {
             Log.e("FloatingService", "Failed to open URL: " + url, e);
-            // 失败时不指定包名，让系统处理
+            // 最后的兜底方案：不指定package让系统选择
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(intent);
                 Log.d("FloatingService", "URL opened with system handler");
             } catch (Exception ex) {
-                Log.e("FloatingService", "Failed to open URL with system handler: " + url, ex);
-                Toast.makeText(this, "打开链接失败，请检查是否安装淘宝或浏览器", Toast.LENGTH_LONG).show();
+                Log.e("FloatingService", "All methods failed: " + url, ex);
+                Toast.makeText(this, "打开链接失败，请检查是否安装淘宝", Toast.LENGTH_LONG).show();
             }
         }
     }
