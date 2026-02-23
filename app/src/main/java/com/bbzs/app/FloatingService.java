@@ -634,36 +634,34 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
-            Intent intent;
-            
-            // 对s.m.taobao.com和web.m.taobao.com使用淘宝的taobao:// scheme
-            if (url.contains("s.m.taobao.com") || url.contains("web.m.taobao.com")) {
-                // 将https://转换为taobao://
-                String taobaoSchemeUrl = url.replace("https://", "taobao://")
-                                           .replace("http://", "taobao://");
-                Log.d("FloatingService", "Using Taobao scheme: " + taobaoSchemeUrl);
-                
-                try {
-                    intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setData(Uri.parse(taobaoSchemeUrl));
-                    intent.setPackage("com.taobao.taobao");
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(intent);
-                    Log.d("FloatingService", "URL opened with Taobao scheme");
-                    return;
-                } catch (Exception e) {
-                    Log.e("FloatingService", "Failed to open with Taobao scheme, fallback to normal intent", e);
-                    // 如果taobao://失败，继续使用普通方式
-                }
-            }
-            
-            // 对其他淘宝/天猫链接使用标准方式
-            intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
+            // 对淘宝/天猫域名，查询能处理的app列表，优先选择淘宝
             if (url.contains(".taobao.com") || url.contains(".tmall.com")) {
-                Log.d("FloatingService", "Opening with Taobao app package");
-                intent.setPackage("com.taobao.taobao");
+                android.content.pm.PackageManager pm = getPackageManager();
+                java.util.List<android.content.pm.ResolveInfo> resolveInfos = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+                
+                Log.d("FloatingService", "Found " + resolveInfos.size() + " apps that can handle this URL");
+                
+                // 查找淘宝app
+                boolean taobaoFound = false;
+                for (android.content.pm.ResolveInfo resolveInfo : resolveInfos) {
+                    String packageName = resolveInfo.activityInfo.packageName;
+                    Log.d("FloatingService", "  - " + packageName);
+                    
+                    if ("com.taobao.taobao".equals(packageName)) {
+                        // 找到淘宝app，设置package强制使用淘宝
+                        intent.setPackage("com.taobao.taobao");
+                        taobaoFound = true;
+                        Log.d("FloatingService", "Taobao app found, using it");
+                        break;
+                    }
+                }
+                
+                if (!taobaoFound) {
+                    Log.d("FloatingService", "Taobao app not found in handlers, using system default");
+                }
             } else {
                 Log.d("FloatingService", "Using system default handler");
             }
@@ -672,16 +670,7 @@ public class FloatingService extends Service {
             Log.d("FloatingService", "URL opened successfully");
         } catch (Exception e) {
             Log.e("FloatingService", "Failed to open URL: " + url, e);
-            // 最后的兜底方案：不指定package让系统选择
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(intent);
-                Log.d("FloatingService", "URL opened with system handler");
-            } catch (Exception ex) {
-                Log.e("FloatingService", "All methods failed: " + url, ex);
-                Toast.makeText(this, "打开链接失败，请检查是否安装淘宝", Toast.LENGTH_LONG).show();
-            }
+            Toast.makeText(this, "打开链接失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
