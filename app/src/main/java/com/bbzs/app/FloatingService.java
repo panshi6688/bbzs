@@ -634,10 +634,17 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
+            // 对s.m.taobao.com和web.m.taobao.com使用WebView加载，让JS处理跳转
+            if (url.contains("s.m.taobao.com") || url.contains("web.m.taobao.com")) {
+                Log.d("FloatingService", "Using WebView to load URL");
+                openUrlWithWebView(url);
+                return;
+            }
+            
+            // 对其他淘宝/天猫链接，查询能处理的app列表，优先选择淘宝
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
-            // 对淘宝/天猫域名，查询能处理的app列表，优先选择淘宝
             if (url.contains(".taobao.com") || url.contains(".tmall.com")) {
                 android.content.pm.PackageManager pm = getPackageManager();
                 java.util.List<android.content.pm.ResolveInfo> resolveInfos = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
@@ -671,6 +678,88 @@ public class FloatingService extends Service {
         } catch (Exception e) {
             Log.e("FloatingService", "Failed to open URL: " + url, e);
             Toast.makeText(this, "打开链接失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * 使用WebView加载URL，让页面的JavaScript处理跳转到淘宝app
+     */
+    private void openUrlWithWebView(final String url) {
+        try {
+            // 创建一个隐藏的WebView
+            final android.webkit.WebView webView = new android.webkit.WebView(this);
+            
+            // 启用JavaScript
+            android.webkit.WebSettings webSettings = webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setDomStorageEnabled(true);
+            
+            // 设置WebViewClient来拦截URL加载
+            webView.setWebViewClient(new android.webkit.WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(android.webkit.WebView view, String interceptedUrl) {
+                    Log.d("FloatingService", "WebView intercepted URL: " + interceptedUrl);
+                    
+                    // 如果是淘宝scheme，尝试打开淘宝app
+                    if (interceptedUrl.startsWith("taobao://") || 
+                        interceptedUrl.startsWith("tbopen://")) {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(interceptedUrl));
+                            intent.setPackage("com.taobao.taobao");
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                            Log.d("FloatingService", "Opened Taobao app with scheme: " + interceptedUrl);
+                            
+                            // 清理WebView
+                            webView.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    webView.destroy();
+                                }
+                            }, 1000);
+                            
+                            return true;
+                        } catch (Exception e) {
+                            Log.e("FloatingService", "Failed to open Taobao scheme: " + interceptedUrl, e);
+                        }
+                    }
+                    
+                    // 继续在WebView中加载
+                    return false;
+                }
+                
+                @Override
+                public void onPageFinished(android.webkit.WebView view, String finishedUrl) {
+                    super.onPageFinished(view, finishedUrl);
+                    Log.d("FloatingService", "WebView page finished: " + finishedUrl);
+                    
+                    // 如果页面加载完成后还在原URL，说明没有跳转，可能需要用户交互
+                    // 这种情况下，我们等待一段时间看是否有scheme跳转
+                    webView.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            // 如果5秒后还没有跳转，清理WebView
+                            // 用户可能需要在浏览器中手动点击"打开淘宝"
+                            Log.d("FloatingService", "WebView timeout, may need user interaction");
+                        }
+                    }, 5000);
+                }
+                
+                @Override
+                public void onReceivedError(android.webkit.WebView view, int errorCode, 
+                                          String description, String failingUrl) {
+                    super.onReceivedError(view, errorCode, description, failingUrl);
+                    Log.e("FloatingService", "WebView error: " + description);
+                }
+            });
+            
+            // 加载URL
+            Log.d("FloatingService", "WebView loading URL: " + url);
+            webView.loadUrl(url);
+            
+        } catch (Exception e) {
+            Log.e("FloatingService", "Failed to create WebView: " + e.getMessage(), e);
+            Toast.makeText(this, "打开链接失败", Toast.LENGTH_SHORT).show();
         }
     }
 
