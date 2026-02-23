@@ -292,20 +292,20 @@ public class FloatingService extends Service {
                 new ButtonData("10W", "10次", UrlConstants.URL_10W),
                 new ButtonData("6W", "1次", UrlConstants.URL_6W),
                 new ButtonData("5W", "10次", UrlConstants.URL_5W),
-                new ButtonData("4W1", "1次", UrlConstants.URL_4W1)
+                new ButtonData("4W①", "1次", UrlConstants.URL_4W1)
         });
 
         // 第二组：4W2, 3W1, 3W2, 3W3
         addButtonRow(contentContainer, new ButtonData[]{
-                new ButtonData("4W2", "1次", UrlConstants.URL_4W2),
-                new ButtonData("3W1", "10次", UrlConstants.URL_3W1),
-                new ButtonData("3W2", "3次", UrlConstants.URL_3W2),
-                new ButtonData("3W3", "1次", UrlConstants.URL_3W3)
+                new ButtonData("4W②", "1次", UrlConstants.URL_4W2),
+                new ButtonData("3W①", "10次", UrlConstants.URL_3W1),
+                new ButtonData("3W②", "3次", UrlConstants.URL_3W2),
+                new ButtonData("3W③", "1次", UrlConstants.URL_3W3)
         });
 
         // 第三组：3W4, 集汗滴, 乐游记, 大富翁
         addButtonRow(contentContainer, new ButtonData[]{
-                new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
+                new ButtonData("3W④", "1次", UrlConstants.URL_3W4),
                 new ButtonData("集汗滴", "乐动力", UrlConstants.URL_JIHANDI),
                 new ButtonData("乐游记", "乐动力", UrlConstants.URL_LEYOUJI),
                 new ButtonData("大富翁", "乐动力", UrlConstants.URL_DAFUWENG)
@@ -406,10 +406,32 @@ public class FloatingService extends Service {
         row.setLayoutParams(rowParams);
 
         for (int i = 0; i < buttons.length; i++) {
-            addButton(row, buttons[i], i < buttons.length - 1);
+            if (buttons[i] != null) {
+                addButton(row, buttons[i], i < buttons.length - 1);
+            } else {
+                // 添加空占位
+                addEmptySpace(row, i < buttons.length - 1);
+            }
         }
 
         container.addView(row);
+    }
+
+    /**
+     * 添加空占位
+     */
+    private void addEmptySpace(LinearLayout row, boolean hasMargin) {
+        View space = new View(themedContext);
+        LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        if (hasMargin) {
+            spaceParams.rightMargin = 2;
+        }
+        space.setLayoutParams(spaceParams);
+        row.addView(space);
     }
 
     /**
@@ -656,7 +678,8 @@ public class FloatingService extends Service {
         builder.setTitle("关于")
                 .setMessage("芭芭助手 v" + versionName + "\n\n" +
                         "淘宝农场助手工具\n" +
-                        "快速访问常用功能页面")
+                        "快速访问常用功能页面\n"+
+                        "软件更新请加入QQ群查看")
                 .setPositiveButton("确定", null);
         android.app.AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {
@@ -1063,12 +1086,98 @@ public class FloatingService extends Service {
                 addButtonsToMenu();
                 break;
             case 1: // 三元三件
-                addTextRow(contentContainer, "三元三件功能开发中...");
+                addSanyuanSanjianButtons();
                 break;
             case 2: // 兑换过肥料
-                addTextRow(contentContainer, "兑换过肥料功能开发中...");
+                addDuihuanFeiliao();
                 break;
         }
+    }
+
+    /**
+     * 添加三元三件相关按钮
+     */
+    private void addSanyuanSanjianButtons() {
+        if (contentContainer == null) return;
+        
+        // 第一组：三元三件, 4W1, 4W2, 购物车
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("三元三件", "", UrlConstants.URL_SANYUAN_SANJIAN),
+                new ButtonData("4W1", "1次", UrlConstants.URL_4W1),
+                new ButtonData("4W2", "1次", UrlConstants.URL_4W2),
+                new ButtonData("购物车", "", UrlConstants.URL_GOUWUCHE)
+        });
+
+        // 第二组：代付款, 地址管理, 肥料明细, 3W1
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("代付款", "", UrlConstants.URL_DAIFUKUAN),
+                new ButtonData("地址管理", "", UrlConstants.URL_DIZHI_GUANLI),
+                new ButtonData("肥料明细", "", UrlConstants.URL_FEILIAO_MINGXI),
+                new ButtonData("3W1", "10次", UrlConstants.URL_3W1)
+        });
+
+        // 第三组：3W2, 3W3, 3W4
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("3W2", "3次", UrlConstants.URL_3W2),
+                new ButtonData("3W3", "1次", UrlConstants.URL_3W3),
+                new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
+                null // 空位
+        });
+
+        // 提示文本
+        addTextRow(contentContainer, "此页仅展示涉及到三元三件的功能");
+    }
+
+    /**
+     * 添加兑换过肥料相关按钮
+     */
+    private void addDuihuanFeiliao() {
+        if (contentContainer == null) return;
+        
+        // 第一组：农场兑换, 4W1, 4W2, 购物车
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("农场兑换", "", UrlConstants.URL_NONGCHANG_DUIHUAN),
+                new ButtonData("4W1", "1次", UrlConstants.URL_4W1),
+                new ButtonData("4W2", "1次", UrlConstants.URL_4W2),
+                new ButtonData("购物车", "", UrlConstants.URL_GOUWUCHE)
+        });
+
+        // 第二组：代付款, 肥料明细, 3W1, 3W2
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("代付款", "", UrlConstants.URL_DAIFUKUAN),
+                new ButtonData("肥料明细", "", UrlConstants.URL_FEILIAO_MINGXI),
+                new ButtonData("3W1", "10次", UrlConstants.URL_3W1),
+                new ButtonData("3W2", "3次", UrlConstants.URL_3W2)
+        });
+
+        // 第三组：3W3, 3W4
+        addButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("3W3", "1次", UrlConstants.URL_3W3),
+                new ButtonData("3W4", "1次", UrlConstants.URL_3W4),
+                null, // 空位
+                null  // 空位
+        });
+
+        // 提示文本
+        addTextRow(contentContainer, "此页仅展示涉及到兑换过肥料的功能");
+    }
+
+    /**
+     * 显示快速访问帮助对话框
+     */
+    private void showQuickAccessHelpDialog() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("快速访问使用说明")
+                .setMessage("长按全部功能中按钮可添加到快速访问，长按快速访问上的功能也可以移出快速访问位置")
+                .setPositiveButton("知道了", null);
+        
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
     }
 
     /**
@@ -1145,7 +1254,7 @@ public class FloatingService extends Service {
                 btn.setStrokeColorResource(android.R.color.darker_gray);
                 btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFF5F5F5));
                 btn.setTextColor(0xFF999999);
-                btn.setOnClickListener(v -> Toast.makeText(this, "长按功能按钮添加到快速访问", Toast.LENGTH_SHORT).show());
+                btn.setOnClickListener(v -> showQuickAccessHelpDialog());
                 frame.addView(btn);
             } else {
                 // 已添加的按钮
