@@ -713,7 +713,7 @@ public class FloatingService extends Service {
         }
 
         // URL格式验证
-        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("diantao://")) {
+        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("taobao://")) {
             Log.e("FloatingService", "Invalid URL format: " + url);
             Toast.makeText(this, "链接格式无效", Toast.LENGTH_SHORT).show();
             return;
@@ -724,13 +724,27 @@ public class FloatingService extends Service {
         Log.d("FloatingService", "Opening URL: " + url);
 
         try {
-            // 处理点淘scheme
-            if (url.startsWith("diantao://")) {
+            // 处理taobao scheme（包括点淘跳转）
+            if (url.startsWith("taobao://")) {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.setPackage("com.taobao.live");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                // 如果URL包含点淘包名，尝试用点淘打开
+                if (url.contains("com.taobao.live")) {
+                    try {
+                        intent.setPackage("com.taobao.live");
+                        startActivity(intent);
+                        Log.d("FloatingService", "Opened with Diantao app");
+                        return;
+                    } catch (Exception e) {
+                        Log.w("FloatingService", "Diantao not installed, fallback to Taobao");
+                        // 点淘未安装，使用淘宝打开
+                        intent.setPackage("com.taobao.taobao");
+                    }
+                } else {
+                    intent.setPackage("com.taobao.taobao");
+                }
                 startActivity(intent);
-                Log.d("FloatingService", "Opened Diantao URL with scheme");
+                Log.d("FloatingService", "Opened Taobao scheme");
                 return;
             }
             

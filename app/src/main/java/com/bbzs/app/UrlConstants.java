@@ -53,9 +53,9 @@ public class UrlConstants {
     public static final String URL_TAOBAO_CHENGJIU = "https://market.m.taobao.com/app/starlink/wakeup-transit/pages/download?star_id=3113&env=miniapp&slk_force_set_request=true&targetUrl=https%3A%2F%2Fm.duanqu.com%3F_ariver_appid%3D3000000027610902%26sourceType%3Dother%26suid%3D15e10d43-8ce9-412f-8a94-bb5539d3dc7f%26short_name%3Dh.7wpq6f6%26app%3Dweixin";
     public static final String URL_TIANTIAN_ZAJINDANG = "https://pages-fast.m.taobao.com/wow/z/app/ltao-fe/tbms-smashing-eggs/home?x-ssr=true&disableProgress=true&x-preload=true&disableNav=YES&skeleton=true&asac=3A25625JD34RZ6TLI11SSN&x-sec=wua&forceThemis=true&status_bar_transparent=true&src=msgongge&short_name=h.7DE4SRA";
     
-    // 点淘区域
-    public static final String URL_DIANTAO_SHOP = "https://shop294995043.m.taobao.com/?refer=https%3A%2F%2Fm.tb.cn%2F&shop_navi=shopindex";
-    public static final String URL_DIANTAO_CART = "diantao://m.diantao.com/cart";
-    public static final String URL_DIANTAO_DAIFUKUAN = "diantao://m.diantao.com/order/list?status=waitPay";
+    // 点淘区域 - 使用taobao scheme指定在点淘打开
+    public static final String URL_DIANTAO_SHOP = "taobao://m.taobao.com/tbopen/index.html?h5Url=https://shop294995043.m.taobao.com/?refer=https%3A%2F%2Fm.tb.cn%2F&shop_navi=shopindex&action=ali.open.nav&appkey=25000003&package_name=com.taobao.live";
+    public static final String URL_DIANTAO_CART = "taobao://m.taobao.com/tbopen/index.html?h5Url=https://cart.taobao.com/cart.htm&action=ali.open.nav&appkey=25000003&package_name=com.taobao.live";
+    public static final String URL_DIANTAO_DAIFUKUAN = "taobao://m.taobao.com/tbopen/index.html?h5Url=https://trade.taobao.com/trade/itemlist/list_bought_items.htm?tabCode=waitPay&action=ali.open.nav&appkey=25000003&package_name=com.taobao.live";
 }
 
