@@ -245,7 +245,7 @@ public class FloatingService extends Service {
             // 添加标签
             tabLayout.addTab(tabLayout.newTab().setText("全部\n功能"));
             tabLayout.addTab(tabLayout.newTab().setText("三元\n三件"));
-            tabLayout.addTab(tabLayout.newTab().setText("兑换过\n肥料"));
+            tabLayout.addTab(tabLayout.newTab().setText("兑换\n过肥"));
             tabLayout.addTab(tabLayout.newTab().setText("地址\n生成"));
             tabLayout.addTab(tabLayout.newTab().setText("查违\n禁店"));
             

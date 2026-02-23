@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 基础安全配置 -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- 信任系统证书 -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    
+    <!-- 针对特定域名的配置 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">taobao.com</domain>
+        <domain includeSubdomains="true">tmall.com</domain>
+        <domain includeSubdomains="true">m.taobao.com</domain>
+        <domain includeSubdomains="true">m.tb.cn</domain>
+    </domain-config>
+</network-security-config>

@@ -11,11 +11,16 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 3
-        versionName "1.1.4"
+        versionName "1.1.5"
     }
 
     buildTypes {
         release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
