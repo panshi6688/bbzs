@@ -137,7 +137,8 @@ public class FloatingService extends Service {
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | 
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT
             );
             iconParams.gravity = Gravity.TOP | Gravity.START;
@@ -154,21 +155,25 @@ public class FloatingService extends Service {
     }
 
     /**
-     * 设置悬浮图标触摸监听：短按切换菜单，长按拖动
+     * 设置悬浮图标触摸监听:短按切换菜单,长按拖动
      */
     private void setupIconTouchListener() {
         final int[] lastX = {0};
         final int[] lastY = {0};
+        final int[] initialX = {0};
+        final int[] initialY = {0};
         final boolean[] isDragging = {false};
         final long[] downTime = {0};
-        final int LONG_PRESS_THRESHOLD = 300; // 长按判定时间(ms)
-        final int DRAG_THRESHOLD = 8; // 拖动判定距离(px)
+        final int CLICK_THRESHOLD = 200; // 点击判定时间(ms)
+        final int DRAG_THRESHOLD = 15; // 拖动判定距离(px),增大阈值避免误判
 
         floatingIcon.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     lastX[0] = (int) event.getRawX();
                     lastY[0] = (int) event.getRawY();
+                    initialX[0] = lastX[0];
+                    initialY[0] = lastY[0];
                     isDragging[0] = false;
                     downTime[0] = System.currentTimeMillis();
                     return true;
@@ -176,9 +181,15 @@ public class FloatingService extends Service {
                 case MotionEvent.ACTION_MOVE:
                     int dx = (int) event.getRawX() - lastX[0];
                     int dy = (int) event.getRawY() - lastY[0];
-                    // 超过拖动阈值或已在拖动中，则进入拖动模式
-                    if (isDragging[0] || Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+                    int totalDx = Math.abs((int) event.getRawX() - initialX[0]);
+                    int totalDy = Math.abs((int) event.getRawY() - initialY[0]);
+                    
+                    // 只有移动距离超过阈值才进入拖动模式
+                    if (!isDragging[0] && (totalDx > DRAG_THRESHOLD || totalDy > DRAG_THRESHOLD)) {
                         isDragging[0] = true;
+                    }
+                    
+                    if (isDragging[0]) {
                         iconParams.x += dx;
                         iconParams.y += dy;
                         windowManager.updateViewLayout(floatingIcon, iconParams);
@@ -188,8 +199,14 @@ public class FloatingService extends Service {
                     return true;
 
                 case MotionEvent.ACTION_UP:
-                    // 未拖动且按下时间短于长按阈值，视为点击
-                    if (!isDragging[0] && (System.currentTimeMillis() - downTime[0]) < LONG_PRESS_THRESHOLD) {
+                case MotionEvent.ACTION_CANCEL:
+                    long pressDuration = System.currentTimeMillis() - downTime[0];
+                    int totalMove = Math.abs((int) event.getRawX() - initialX[0]) + 
+                                   Math.abs((int) event.getRawY() - initialY[0]);
+                    
+                    // 判断为点击:时间短且移动距离小
+                    if (!isDragging[0] && pressDuration < CLICK_THRESHOLD && totalMove < DRAG_THRESHOLD) {
+                        v.performClick();
                         toggleMenu();
                     } else if (isDragging[0]) {
                         // 拖动结束后自动贴边
@@ -236,6 +253,12 @@ public class FloatingService extends Service {
 
             // 右上角更多菜单
             floatingMenu.findViewById(R.id.iv_menu_more).setOnClickListener(this::showPopupMenu);
+
+            // 点击标题栏关闭菜单
+            View titleBar = floatingMenu.findViewById(R.id.title_bar);
+            if (titleBar != null) {
+                titleBar.setOnClickListener(v -> hideMenu());
+            }
 
             // 初始化TabLayout
             tabLayout = floatingMenu.findViewById(R.id.tab_layout);
@@ -584,17 +607,25 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
-            // 1. 先添加全屏透明遮罩层，拦截外部点击
+            // 1. 先添加全屏透明遮罩层,拦截外部点击
             overlayMask = new View(this);
-            overlayMask.setBackgroundColor(0x01000000); // 几乎全透明，但能拦截触摸
+            overlayMask.setBackgroundColor(0x00000000); // 完全透明
             WindowManager.LayoutParams maskParams = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | 
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
             );
-            overlayMask.setOnClickListener(v -> hideMenu());
+            overlayMask.setOnTouchListener((v, event) -> {
+                // 只监听外部点击,不消费事件,让触摸穿透
+                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+                    hideMenu();
+                }
+                return false; // 不消费事件,允许穿透
+            });
             windowManager.addView(overlayMask, maskParams);
 
             // 2. 再添加菜单面板
@@ -602,10 +633,17 @@ public class FloatingService extends Service {
                     menuWidth,
                     menuHeight,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
+
+            // 添加触摸监听,防止点击穿透
+            floatingMenu.setOnTouchListener((v, event) -> {
+                // 消费菜单内的所有触摸事件,防止穿透到遮罩层
+                return false;
+            });
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
@@ -683,7 +721,8 @@ public class FloatingService extends Service {
                         "2. 拖动悬浮图标可移动位置，松手自动贴边\n" +
                         "3. 点击功能按钮跳转到淘宝对应页面\n" +
                         "4. 部分肥料页需每日进入一次农场激活\n" +
-                        "5. 点击菜单外部区域关闭菜单")
+                        "5. 点击界面标题栏可以关掉界面显示\n" +
+                        "6. 点击菜单外部区域也可关闭菜单")
                 .setPositiveButton("知道了", null);
         android.app.AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {

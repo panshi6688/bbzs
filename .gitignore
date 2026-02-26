@@ -1,0 +1,38 @@
+# Android Studio
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# 签名文件 - 重要：不要提交这些文件！
+*.jks
+*.keystore
+keystore.properties
+*.example
+
+# APK文件
+*.apk
+*.ap_
+*.aab
+
+# Log文件
+*.log
+
+# 其他
+.navigation/
+output.json
+
+# 临时文档和笔记（根目录下的md文件，但保留子目录中的文档）
+/*.md
+!README.md
+!LICENSE.md
+
+# 生成密钥工具脚本
+generate-keystore.bat
+generate-keystore.sh
