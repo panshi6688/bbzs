@@ -614,18 +614,11 @@ public class FloatingService extends Service {
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | 
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT
             );
-            overlayMask.setOnTouchListener((v, event) -> {
-                // 只监听外部点击,不消费事件,让触摸穿透
-                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
-                    hideMenu();
-                }
-                return false; // 不消费事件,允许穿透
-            });
+            // 点击遮罩层关闭菜单
+            overlayMask.setOnClickListener(v -> hideMenu());
             windowManager.addView(overlayMask, maskParams);
 
             // 2. 再添加菜单面板
@@ -633,17 +626,10 @@ public class FloatingService extends Service {
                     menuWidth,
                     menuHeight,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
-
-            // 添加触摸监听,防止点击穿透
-            floatingMenu.setOnTouchListener((v, event) -> {
-                // 消费菜单内的所有触摸事件,防止穿透到遮罩层
-                return false;
-            });
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
