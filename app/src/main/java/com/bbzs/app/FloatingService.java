@@ -42,7 +42,6 @@ public class FloatingService extends Service {
     private WindowManager windowManager;
     private View floatingIcon;
     private View floatingMenu;
-    private View overlayMask; // 全屏透明遮罩层，拦截菜单外部点击
     private View fontSizePanel; // 字体大小调整面板
     private WindowManager.LayoutParams iconParams;
     private WindowManager.LayoutParams menuParams;
@@ -106,12 +105,11 @@ public class FloatingService extends Service {
         if (fontSizePanel != null && fontSizePanel.isAttachedToWindow()) {
             windowManager.removeView(fontSizePanel);
         }
-        if (floatingIcon != null) windowManager.removeView(floatingIcon);
+        if (floatingIcon != null && floatingIcon.isAttachedToWindow()) {
+            windowManager.removeView(floatingIcon);
+        }
         if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
             windowManager.removeView(floatingMenu);
-        }
-        if (overlayMask != null && overlayMask.isAttachedToWindow()) {
-            windowManager.removeView(overlayMask);
         }
     }
 
@@ -607,29 +605,25 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
-            // 1. 先添加全屏透明遮罩层,拦截外部点击
-            overlayMask = new View(this);
-            overlayMask.setBackgroundColor(0x00000000); // 完全透明
-            WindowManager.LayoutParams maskParams = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT
-            );
-            // 点击遮罩层关闭菜单
-            overlayMask.setOnClickListener(v -> hideMenu());
-            windowManager.addView(overlayMask, maskParams);
-
-            // 2. 再添加菜单面板
+            // 添加菜单面板 - 使用可聚焦模式确保触摸事件正常工作
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
+
+            // 监听外部点击事件
+            floatingMenu.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+                    hideMenu();
+                    return true;
+                }
+                return false;
+            });
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
@@ -650,10 +644,6 @@ public class FloatingService extends Service {
             if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
                 windowManager.removeView(floatingMenu);
             }
-            if (overlayMask != null && overlayMask.isAttachedToWindow()) {
-                windowManager.removeView(overlayMask);
-                overlayMask = null;
-            }
             isMenuVisible = false;
             android.util.Log.d("FloatingService", "功能菜单已隐藏");
         } catch (Exception e) {
@@ -673,6 +663,9 @@ public class FloatingService extends Service {
                 int id = item.getItemId();
                 if (id == R.id.menu_exit) {
                     stopSelf();
+                    return true;
+                } else if (id == R.id.menu_view_schemes) {
+                    viewSchemeLog();
                     return true;
                 } else if (id == R.id.menu_font_size) {
                     showFontSizePanel();
@@ -814,6 +807,10 @@ public class FloatingService extends Service {
      */
     private void openUrlWithWebView(final String url) {
         try {
+            // 创建scheme记录文件
+            final java.io.File schemeLogFile = new java.io.File(getExternalFilesDir(null), "taobao_schemes.txt");
+            final java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.CHINA);
+            
             // 创建一个隐藏的WebView
             final android.webkit.WebView webView = new android.webkit.WebView(this);
             
@@ -828,9 +825,31 @@ public class FloatingService extends Service {
                 public boolean shouldOverrideUrlLoading(android.webkit.WebView view, String interceptedUrl) {
                     Log.d("FloatingService", "WebView intercepted URL: " + interceptedUrl);
                     
-                    // 如果是淘宝scheme，尝试打开淘宝app
+                    // 如果是淘宝scheme，记录并尝试打开淘宝app
                     if (interceptedUrl.startsWith("taobao://") || 
                         interceptedUrl.startsWith("tbopen://")) {
+                        
+                        // 记录scheme到文件
+                        try {
+                            java.io.FileWriter writer = new java.io.FileWriter(schemeLogFile, true);
+                            writer.write("=".repeat(80) + "\n");
+                            writer.write("时间: " + dateFormat.format(new java.util.Date()) + "\n");
+                            writer.write("原始URL: " + url + "\n");
+                            writer.write("拦截到的Scheme: " + interceptedUrl + "\n");
+                            writer.write("Scheme长度: " + interceptedUrl.length() + " 字符\n");
+                            writer.write("=".repeat(80) + "\n\n");
+                            writer.close();
+                            
+                            Log.d("FloatingService", "Scheme已记录到文件: " + schemeLogFile.getAbsolutePath());
+                            
+                            // 显示Toast提示
+                            Toast.makeText(FloatingService.this, 
+                                "已记录Scheme到文件", Toast.LENGTH_SHORT).show();
+                            
+                        } catch (Exception e) {
+                            Log.e("FloatingService", "记录Scheme失败", e);
+                        }
+                        
                         try {
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(interceptedUrl));
                             intent.setPackage("com.taobao.taobao");
@@ -1136,6 +1155,90 @@ public class FloatingService extends Service {
             Log.e("FloatingService", "打开QQ群失败: " + e.getMessage(), e);
             Toast.makeText(this, "请先安装QQ", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * 查看Scheme记录
+     */
+    private void viewSchemeLog() {
+        try {
+            java.io.File schemeLogFile = new java.io.File(getExternalFilesDir(null), "taobao_schemes.txt");
+            
+            if (!schemeLogFile.exists() || schemeLogFile.length() == 0) {
+                Toast.makeText(this, "暂无Scheme记录，请先点击按钮触发拦截", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            // 读取文件内容
+            StringBuilder content = new StringBuilder();
+            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(schemeLogFile));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            reader.close();
+            
+            // 使用Intent打开文件
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            Uri fileUri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                getPackageName() + ".fileprovider",
+                schemeLogFile
+            );
+            intent.setDataAndType(fileUri, "text/plain");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            try {
+                startActivity(intent);
+                Log.d("FloatingService", "已打开Scheme记录文件");
+            } catch (Exception e) {
+                // 如果没有文本查看器，显示对话框
+                showSchemeLogDialog(content.toString());
+            }
+            
+        } catch (Exception e) {
+            Log.e("FloatingService", "查看Scheme记录失败", e);
+            Toast.makeText(this, "查看记录失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * 显示Scheme记录对话框
+     */
+    private void showSchemeLogDialog(String content) {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        
+        // 创建滚动视图
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(themedContext);
+        android.widget.TextView textView = new android.widget.TextView(themedContext);
+        textView.setText(content);
+        textView.setTextSize(12);
+        textView.setTextIsSelectable(true);
+        textView.setPadding(20, 20, 20, 20);
+        scrollView.addView(textView);
+        
+        builder.setTitle("Scheme记录")
+                .setView(scrollView)
+                .setPositiveButton("关闭", null)
+                .setNeutralButton("清空记录", (dialog, which) -> {
+                    try {
+                        java.io.File schemeLogFile = new java.io.File(getExternalFilesDir(null), "taobao_schemes.txt");
+                        if (schemeLogFile.delete()) {
+                            Toast.makeText(this, "记录已清空", Toast.LENGTH_SHORT).show();
+                        }
+                    } catch (Exception e) {
+                        Toast.makeText(this, "清空失败", Toast.LENGTH_SHORT).show();
+                    }
+                });
+        
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
     }
 
     /**
