@@ -81,11 +81,22 @@ public class KeywordInputActivity extends Activity {
         
         // 历史记录列表
         lvHistory = new ListView(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_list_item_1,
                 searchKeywords
-        );
+        ) {
+            @Override
+            public android.view.View getView(int position, android.view.View convertView, android.view.ViewGroup parent) {
+                android.view.View view = super.getView(position, convertView, parent);
+                // 设置文本颜色为黑色
+                TextView textView = (TextView) view.findViewById(android.R.id.text1);
+                if (textView != null) {
+                    textView.setTextColor(0xFF333333);
+                }
+                return view;
+            }
+        };
         lvHistory.setAdapter(adapter);
         lvHistory.setBackgroundColor(0xFFFFFFFF);
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
@@ -153,9 +164,12 @@ public class KeywordInputActivity extends Activity {
                     saveSearchKeywords();
                 }
                 
+                android.util.Log.d("KeywordInputActivity", "发送保存广播,关键词: " + keyword);
+                
                 // 发送广播通知Service
                 Intent broadcast = new Intent("com.bbzs.app.KEYWORD_RESULT");
                 broadcast.putExtra(EXTRA_RESULT_KEYWORD, keyword);
+                broadcast.setPackage(getPackageName()); // 指定包名,确保广播能送达
                 sendBroadcast(broadcast);
                 
                 finish();
@@ -166,18 +180,26 @@ public class KeywordInputActivity extends Activity {
         
         // 取消按钮点击
         btnCancel.setOnClickListener(v -> {
+            android.util.Log.d("KeywordInputActivity", "发送取消广播");
+            
             // 发送取消广播
             Intent broadcast = new Intent("com.bbzs.app.KEYWORD_CANCEL");
+            broadcast.setPackage(getPackageName()); // 指定包名,确保广播能送达
             sendBroadcast(broadcast);
+            
             finish();
         });
     }
     
     @Override
     public void onBackPressed() {
+        android.util.Log.d("KeywordInputActivity", "返回键,发送取消广播");
+        
         // 返回键也发送取消广播
         Intent broadcast = new Intent("com.bbzs.app.KEYWORD_CANCEL");
+        broadcast.setPackage(getPackageName()); // 指定包名,确保广播能送达
         sendBroadcast(broadcast);
+        
         super.onBackPressed();
     }
     

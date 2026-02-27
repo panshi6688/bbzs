@@ -70,8 +70,12 @@ public class FloatingService extends Service {
     private android.content.BroadcastReceiver keywordResultReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(android.content.Context context, Intent intent) {
+            android.util.Log.d("FloatingService", "收到广播: " + intent.getAction());
+            
             if ("com.bbzs.app.KEYWORD_RESULT".equals(intent.getAction())) {
                 String keyword = intent.getStringExtra(KeywordInputActivity.EXTRA_RESULT_KEYWORD);
+                android.util.Log.d("FloatingService", "收到关键词: " + keyword);
+                
                 if (keyword != null && currentKeywordTextView != null) {
                     currentKeywordTextView.setText(keyword);
                     // 保存到历史
@@ -82,8 +86,10 @@ public class FloatingService extends Service {
                     Toast.makeText(FloatingService.this, "关键词已保存", Toast.LENGTH_SHORT).show();
                 }
                 // 重新显示功能菜单
+                android.util.Log.d("FloatingService", "准备显示功能菜单");
                 showMenu();
             } else if ("com.bbzs.app.KEYWORD_CANCEL".equals(intent.getAction())) {
+                android.util.Log.d("FloatingService", "取消输入,准备显示功能菜单");
                 // 取消,重新显示功能菜单
                 showMenu();
             }
