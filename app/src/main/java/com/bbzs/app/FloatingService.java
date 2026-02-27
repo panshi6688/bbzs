@@ -628,13 +628,16 @@ public class FloatingService extends Service {
                     menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
+                    WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // 允许输入法交互但不影响窗口
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
             menuParams.alpha = currentMenuAlpha; // 应用透明度
-            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN | 
-                                       WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; // 输入法不影响窗口
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | 
+                                       WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE; // 调整大小而不是位置
+            menuParams.width = menuWidth;
+            menuParams.height = menuHeight;
 
             // 监听外部点击事件
             floatingMenu.setOnTouchListener((v, event) -> {
@@ -1598,57 +1601,25 @@ public class FloatingService extends Service {
         // 可编辑下拉框
         searchKeywordInput = new android.widget.AutoCompleteTextView(themedContext);
         searchKeywordInput.setHint("输入或选择关键词");
-        searchKeywordInput.setTextSize(12 * currentFontScale); // 缩小字体
-        searchKeywordInput.setSingleLine(true); // 单行显示
-        searchKeywordInput.setMaxLines(1); // 最大1行
-        searchKeywordInput.setThreshold(1); // 输入1个字符就显示建议
-        searchKeywordInput.setDropDownHeight(400); // 设置下拉列表高度
-        // 添加下拉箭头图标
+        searchKeywordInput.setTextSize(12 * currentFontScale);
+        searchKeywordInput.setSingleLine(true);
+        searchKeywordInput.setMaxLines(1);
+        searchKeywordInput.setThreshold(1);
+        searchKeywordInput.setDropDownHeight(300); // 减小下拉高度
+        searchKeywordInput.setDropDownAnchor(searchKeywordInput.getId()); // 锚定到自身
+        // 添加下拉箭头
         searchKeywordInput.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
-        // 点击整个输入框区域都能弹出下拉列表
-        searchKeywordInput.setOnClickListener(v -> searchKeywordInput.showDropDown());
-        
-        // 焦点监听：输入法弹出时调整菜单位置
-        final int[] originalMenuY = {0};
-        final boolean[] hasAdjusted = {false}; // 标记是否已经调整过位置
-        searchKeywordInput.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && !hasAdjusted[0]) {
-                // 获得焦点，输入法即将弹出
-                isInputting = true; // 设置输入状态
-                android.util.Log.d("FloatingService", "输入框获得焦点，停止窗口刷新");
-                // 保存原始Y坐标
-                if (menuParams != null) {
-                    originalMenuY[0] = menuParams.y;
-                    // 将菜单上移，确保输入框可见
-                    android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
-                    windowManager.getDefaultDisplay().getMetrics(dm);
-                    int screenHeight = dm.heightPixels;
-                    // 上移到屏幕上半部分
-                    menuParams.y = -screenHeight / 4;
-                    menuParams.gravity = Gravity.CENTER;
-                    try {
-                        windowManager.updateViewLayout(floatingMenu, menuParams);
-                        hasAdjusted[0] = true; // 标记已调整
-                    } catch (Exception e) {
-                        android.util.Log.e("FloatingService", "调整菜单位置失败", e);
-                    }
-                }
-            } else if (!hasFocus && hasAdjusted[0]) {
-                // 失去焦点，输入法关闭
-                isInputting = false; // 清除输入状态
-                android.util.Log.d("FloatingService", "输入框失去焦点，恢复窗口刷新");
-                // 恢复原始位置
-                if (menuParams != null) {
-                    menuParams.y = originalMenuY[0];
-                    menuParams.gravity = Gravity.CENTER;
-                    try {
-                        windowManager.updateViewLayout(floatingMenu, menuParams);
-                        hasAdjusted[0] = false; // 重置标记
-                    } catch (Exception e) {
-                        android.util.Log.e("FloatingService", "恢复菜单位置失败", e);
-                    }
-                }
+        // 点击显示下拉列表
+        searchKeywordInput.setOnClickListener(v -> {
+            if (!searchKeywordInput.isPopupShowing()) {
+                searchKeywordInput.showDropDown();
             }
+        });
+        
+        // 焦点监听：仅标记输入状态，不调整位置
+        searchKeywordInput.setOnFocusChangeListener((v, hasFocus) -> {
+            isInputting = hasFocus;
+            android.util.Log.d("FloatingService", "输入状态: " + (hasFocus ? "开始输入" : "结束输入"));
         });
         
         keywordAdapter = new android.widget.ArrayAdapter<>(
