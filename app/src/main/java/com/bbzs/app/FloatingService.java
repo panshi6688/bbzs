@@ -52,6 +52,7 @@ public class FloatingService extends Service {
     private boolean isMenuVisible = false;
     private boolean isFontPanelVisible = false;
     private boolean isAlphaPanelVisible = false;
+    private boolean isInputting = false; // 标记是否正在输入（输入法弹出状态）
     private android.content.Context themedContext; // 带主题的Context，用于创建Material组件
     private float currentFontScale = DEFAULT_FONT_SCALE; // 当前字体缩放比例
     private float currentMenuAlpha = DEFAULT_MENU_ALPHA; // 当前菜单不透明度
@@ -1384,6 +1385,7 @@ public class FloatingService extends Service {
      * 更新菜单透明度（实时预览）
      */
     private void updateMenuAlpha() {
+        if (isInputting) return; // 输入时不更新
         if (menuParams != null && floatingMenu != null && floatingMenu.isAttachedToWindow()) {
             menuParams.alpha = currentMenuAlpha;
             windowManager.updateViewLayout(floatingMenu, menuParams);
@@ -1424,7 +1426,7 @@ public class FloatingService extends Service {
      * 刷新菜单高度
      */
     private void refreshMenuHeight() {
-        if (!isMenuVisible || floatingMenu == null) return;
+        if (!isMenuVisible || floatingMenu == null || isInputting) return; // 输入时不刷新
 
         try {
             // 获取屏幕尺寸
@@ -1608,10 +1610,12 @@ public class FloatingService extends Service {
         
         // 焦点监听：输入法弹出时调整菜单位置
         final int[] originalMenuY = {0};
+        final boolean[] hasAdjusted = {false}; // 标记是否已经调整过位置
         searchKeywordInput.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
+            if (hasFocus && !hasAdjusted[0]) {
                 // 获得焦点，输入法即将弹出
-                android.util.Log.d("FloatingService", "输入框获得焦点");
+                isInputting = true; // 设置输入状态
+                android.util.Log.d("FloatingService", "输入框获得焦点，停止窗口刷新");
                 // 保存原始Y坐标
                 if (menuParams != null) {
                     originalMenuY[0] = menuParams.y;
@@ -1624,19 +1628,22 @@ public class FloatingService extends Service {
                     menuParams.gravity = Gravity.CENTER;
                     try {
                         windowManager.updateViewLayout(floatingMenu, menuParams);
+                        hasAdjusted[0] = true; // 标记已调整
                     } catch (Exception e) {
                         android.util.Log.e("FloatingService", "调整菜单位置失败", e);
                     }
                 }
-            } else {
+            } else if (!hasFocus && hasAdjusted[0]) {
                 // 失去焦点，输入法关闭
-                android.util.Log.d("FloatingService", "输入框失去焦点");
+                isInputting = false; // 清除输入状态
+                android.util.Log.d("FloatingService", "输入框失去焦点，恢复窗口刷新");
                 // 恢复原始位置
                 if (menuParams != null) {
                     menuParams.y = originalMenuY[0];
                     menuParams.gravity = Gravity.CENTER;
                     try {
                         windowManager.updateViewLayout(floatingMenu, menuParams);
+                        hasAdjusted[0] = false; // 重置标记
                     } catch (Exception e) {
                         android.util.Log.e("FloatingService", "恢复菜单位置失败", e);
                     }
