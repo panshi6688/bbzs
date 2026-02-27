@@ -1628,6 +1628,9 @@ public class FloatingService extends Service {
      * 显示关键词输入对话框
      */
     private void showKeywordInputDialog(android.widget.TextView tvKeyword) {
+        // 先隐藏功能菜单,避免输入法弹出时闪动
+        hideMenu();
+        
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
         builder.setTitle("输入搜索关键词");
         
@@ -1674,8 +1677,13 @@ public class FloatingService extends Service {
                 }
                 Toast.makeText(this, "关键词已保存", Toast.LENGTH_SHORT).show();
             }
+            // 保存后重新显示功能菜单
+            showMenu();
         });
-        builder.setNegativeButton("取消", null);
+        builder.setNegativeButton("取消", (dialog, which) -> {
+            // 取消后也重新显示功能菜单
+            showMenu();
+        });
         
         android.app.AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {
@@ -1683,6 +1691,14 @@ public class FloatingService extends Service {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE);
         }
+        
+        // 对话框关闭时也重新显示功能菜单(处理点击外部关闭的情况)
+        dialog.setOnDismissListener(d -> {
+            if (!isMenuVisible) {
+                showMenu();
+            }
+        });
+        
         dialog.show();
     }
     
