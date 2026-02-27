@@ -622,20 +622,18 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
-            // 添加菜单面板
+            // 添加菜单面板 - 移除FLAG_NOT_FOCUSABLE以支持输入法
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
-                    WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // 允许输入法交互但不影响窗口
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
-            menuParams.alpha = currentMenuAlpha; // 应用透明度
-            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | 
-                                       WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE; // 调整大小而不是位置
+            menuParams.alpha = currentMenuAlpha;
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE; // 自动调整大小
             menuParams.width = menuWidth;
             menuParams.height = menuHeight;
 
