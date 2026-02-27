@@ -88,6 +88,10 @@ public class FloatingService extends Service {
     public void onCreate() {
         super.onCreate();
         try {
+            // 初始化调试日志
+            DebugLogger.init(this);
+            DebugLogger.log("FloatingService onCreate");
+            
             // 加载保存的设置
             android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             currentFontScale = prefs.getFloat(KEY_FONT_SCALE, DEFAULT_FONT_SCALE);
@@ -101,6 +105,7 @@ public class FloatingService extends Service {
             initFloatingMenu();
 
             android.util.Log.d("FloatingService", "悬浮窗服务已启动");
+            DebugLogger.log("日志文件位置: " + DebugLogger.getLogFilePath());
         } catch (Exception e) {
             android.util.Log.e("FloatingService", "启动失败: " + e.getMessage(), e);
         }
@@ -622,6 +627,14 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
+            android.util.Log.d("FloatingService", "===== showMenu =====");
+            android.util.Log.d("FloatingService", "屏幕尺寸: " + screenWidth + "x" + screenHeight);
+            android.util.Log.d("FloatingService", "菜单尺寸: " + menuWidth + "x" + menuHeight);
+            
+            DebugLogger.log("===== showMenu =====");
+            DebugLogger.log("屏幕尺寸: " + screenWidth + "x" + screenHeight);
+            DebugLogger.log("菜单尺寸: " + menuWidth + "x" + menuHeight);
+
             // 添加菜单面板 - 移除FLAG_NOT_FOCUSABLE以支持输入法
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
@@ -637,6 +650,9 @@ public class FloatingService extends Service {
             menuParams.width = menuWidth;
             menuParams.height = menuHeight;
 
+            android.util.Log.d("FloatingService", "初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
+            DebugLogger.log("初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
+
             // 监听外部点击事件
             floatingMenu.setOnTouchListener((v, event) -> {
                 if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
@@ -648,6 +664,36 @@ public class FloatingService extends Service {
 
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
+            
+            // 添加布局变化监听
+            floatingMenu.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+                @Override
+                public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                         int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                    int oldWidth = oldRight - oldLeft;
+                    int oldHeight = oldBottom - oldTop;
+                    int newWidth = right - left;
+                    int newHeight = bottom - top;
+                    
+                    if (oldWidth != newWidth || oldHeight != newHeight) {
+                        android.util.Log.d("FloatingService", "===== 布局变化 =====");
+                        android.util.Log.d("FloatingService", "旧尺寸: " + oldWidth + "x" + oldHeight);
+                        android.util.Log.d("FloatingService", "新尺寸: " + newWidth + "x" + newHeight);
+                        android.util.Log.d("FloatingService", "位置: left=" + left + ", top=" + top);
+                        android.util.Log.d("FloatingService", "isInputting: " + isInputting);
+                        android.util.Log.d("FloatingService", "menuParams: x=" + menuParams.x + ", y=" + menuParams.y + 
+                                         ", width=" + menuParams.width + ", height=" + menuParams.height);
+                        
+                        DebugLogger.log("===== 布局变化 =====");
+                        DebugLogger.log("旧尺寸: " + oldWidth + "x" + oldHeight);
+                        DebugLogger.log("新尺寸: " + newWidth + "x" + newHeight);
+                        DebugLogger.log("位置: left=" + left + ", top=" + top);
+                        DebugLogger.log("isInputting: " + isInputting);
+                        DebugLogger.log("menuParams: x=" + menuParams.x + ", y=" + menuParams.y + 
+                                         ", width=" + menuParams.width + ", height=" + menuParams.height);
+                    }
+                }
+            });
 
             android.util.Log.d("FloatingService", "功能菜单已显示");
         } catch (Exception e) {
@@ -744,13 +790,22 @@ public class FloatingService extends Service {
             // 忽略
         }
 
+        String logPath = DebugLogger.getLogFilePath();
+
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
         builder.setTitle("关于")
                 .setMessage("芭芭助手 v" + versionName + "\n\n" +
                         "淘宝农场助手工具\n" +
                         "快速访问常用功能页面\n"+
-                        "软件更新请加入QQ群查看")
-                .setPositiveButton("确定", null);
+                        "软件更新请加入QQ群查看\n\n" +
+                        "调试日志位置:\n" + logPath)
+                .setPositiveButton("确定", null)
+                .setNeutralButton("复制日志路径", (dialog, which) -> {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    android.content.ClipData clip = android.content.ClipData.newPlainText("日志路径", logPath);
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(this, "已复制到剪贴板", Toast.LENGTH_SHORT).show();
+                });
         android.app.AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -1386,8 +1441,20 @@ public class FloatingService extends Service {
      * 更新菜单透明度（实时预览）
      */
     private void updateMenuAlpha() {
-        if (isInputting) return; // 输入时不更新
+        if (isInputting) {
+            android.util.Log.d("FloatingService", "updateMenuAlpha: 输入中，跳过更新");
+            DebugLogger.log("updateMenuAlpha: 输入中，跳过更新");
+            return; // 输入时不更新
+        }
         if (menuParams != null && floatingMenu != null && floatingMenu.isAttachedToWindow()) {
+            android.util.Log.d("FloatingService", "===== updateMenuAlpha 被调用 =====");
+            android.util.Log.d("FloatingService", "当前透明度: " + currentMenuAlpha);
+            android.util.Log.d("FloatingService", "当前位置: x=" + menuParams.x + ", y=" + menuParams.y);
+            
+            DebugLogger.log("===== updateMenuAlpha 被调用 =====");
+            DebugLogger.log("当前透明度: " + currentMenuAlpha);
+            DebugLogger.log("当前位置: x=" + menuParams.x + ", y=" + menuParams.y);
+            
             menuParams.alpha = currentMenuAlpha;
             windowManager.updateViewLayout(floatingMenu, menuParams);
         }
@@ -1430,6 +1497,10 @@ public class FloatingService extends Service {
         if (!isMenuVisible || floatingMenu == null || isInputting) return; // 输入时不刷新
 
         try {
+            android.util.Log.d("FloatingService", "===== refreshMenuHeight 被调用 =====");
+            DebugLogger.log("===== refreshMenuHeight 被调用 =====");
+            DebugLogger.log("调用堆栈: " + android.util.Log.getStackTraceString(new Throwable()));
+            
             // 获取屏幕尺寸
             android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
             windowManager.getDefaultDisplay().getMetrics(dm);
@@ -1448,11 +1519,19 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
+            android.util.Log.d("FloatingService", "当前位置: x=" + menuParams.x + ", y=" + menuParams.y);
+            android.util.Log.d("FloatingService", "当前尺寸: " + menuParams.width + "x" + menuParams.height);
+            android.util.Log.d("FloatingService", "新高度: " + menuHeight);
+            
+            DebugLogger.log("当前位置: x=" + menuParams.x + ", y=" + menuParams.y);
+            DebugLogger.log("当前尺寸: " + menuParams.width + "x" + menuParams.height);
+            DebugLogger.log("新高度: " + menuHeight);
+
             // 更新菜单布局参数
             if (menuParams != null) {
                 menuParams.height = menuHeight;
                 windowManager.updateViewLayout(floatingMenu, menuParams);
-                Log.d("FloatingService", "菜单高度已刷新: " + menuHeight);
+                android.util.Log.d("FloatingService", "菜单高度已刷新: " + menuHeight);
             }
         } catch (Exception e) {
             Log.e("FloatingService", "刷新菜单高度失败: " + e.getMessage(), e);
@@ -1616,8 +1695,15 @@ public class FloatingService extends Service {
         
         // 焦点监听：仅标记输入状态，不调整位置
         searchKeywordInput.setOnFocusChangeListener((v, hasFocus) -> {
+            android.util.Log.d("FloatingService", "===== 焦点变化 =====");
+            android.util.Log.d("FloatingService", "hasFocus: " + hasFocus);
+            android.util.Log.d("FloatingService", "时间戳: " + System.currentTimeMillis());
+            
+            DebugLogger.log("===== 焦点变化 =====");
+            DebugLogger.log("hasFocus: " + hasFocus);
+            DebugLogger.log("时间戳: " + System.currentTimeMillis());
+            
             isInputting = hasFocus;
-            android.util.Log.d("FloatingService", "输入状态: " + (hasFocus ? "开始输入" : "结束输入"));
         });
         
         keywordAdapter = new android.widget.ArrayAdapter<>(
