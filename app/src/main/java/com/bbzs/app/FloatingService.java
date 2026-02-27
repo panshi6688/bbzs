@@ -648,7 +648,7 @@ public class FloatingService extends Service {
             DebugLogger.log("屏幕尺寸: " + screenWidth + "x" + screenHeight);
             DebugLogger.log("菜单尺寸: " + menuWidth + "x" + menuHeight);
 
-            // 添加菜单面板 - 移除FLAG_NOT_FOCUSABLE以支持输入法
+            // 添加菜单面板 - 使用ADJUST_NOTHING防止输入法导致窗口被移除
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
@@ -659,9 +659,11 @@ public class FloatingService extends Service {
             );
             menuParams.gravity = Gravity.CENTER;
             menuParams.alpha = currentMenuAlpha;
-            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE; // 自动调整大小
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; // 输入法不影响窗口
             menuParams.width = menuWidth;
             menuParams.height = menuHeight;
+            
+            DebugLogger.log("窗口参数: softInputMode=ADJUST_NOTHING");
 
             android.util.Log.d("FloatingService", "初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
             DebugLogger.log("初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
@@ -736,11 +738,15 @@ public class FloatingService extends Service {
         if (!isMenuVisible) return;
 
         try {
+            DebugLogger.log("===== hideMenu 被调用 =====");
+            DebugLogger.log("调用堆栈: " + android.util.Log.getStackTraceString(new Throwable()));
+            
             if (floatingMenu != null && floatingMenu.isAttachedToWindow()) {
                 windowManager.removeView(floatingMenu);
             }
             isMenuVisible = false;
             android.util.Log.d("FloatingService", "功能菜单已隐藏");
+            DebugLogger.log("功能菜单已隐藏");
         } catch (Exception e) {
             android.util.Log.e("FloatingService", "隐藏菜单失败: " + e.getMessage(), e);
         }
@@ -1730,8 +1736,16 @@ public class FloatingService extends Service {
             DebugLogger.log("===== 焦点变化 =====");
             DebugLogger.log("hasFocus: " + hasFocus);
             DebugLogger.log("时间戳: " + System.currentTimeMillis());
+            DebugLogger.log("菜单附加状态: " + (floatingMenu != null && floatingMenu.isAttachedToWindow()));
+            DebugLogger.log("isMenuVisible: " + isMenuVisible);
             
             isInputting = hasFocus;
+            
+            if (hasFocus) {
+                DebugLogger.log("输入法即将弹出，监控窗口状态...");
+            } else {
+                DebugLogger.log("输入法已关闭");
+            }
         });
         
         keywordAdapter = new android.widget.ArrayAdapter<>(
