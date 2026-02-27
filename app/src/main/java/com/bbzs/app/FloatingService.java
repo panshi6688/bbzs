@@ -153,6 +153,8 @@ public class FloatingService extends Service {
             iconParams.gravity = Gravity.TOP | Gravity.START;
             iconParams.x = screenWidth - iconSize; // 右边
             iconParams.y = (screenHeight - iconSize) / 2; // 垂直居中
+            // 设置输入法弹出时不调整图标位置,避免闪动
+            iconParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;
 
             windowManager.addView(floatingIcon, iconParams);
             setupIconTouchListener();
@@ -1690,6 +1692,8 @@ public class FloatingService extends Service {
             dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE);
+            // 设置输入法弹出时不调整对话框位置,避免闪动
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
         }
         
         // 对话框关闭时也重新显示功能菜单(处理点击外部关闭的情况)
