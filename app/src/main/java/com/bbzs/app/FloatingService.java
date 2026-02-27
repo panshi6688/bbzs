@@ -648,22 +648,28 @@ public class FloatingService extends Service {
             DebugLogger.log("屏幕尺寸: " + screenWidth + "x" + screenHeight);
             DebugLogger.log("菜单尺寸: " + menuWidth + "x" + menuHeight);
 
-            // 添加菜单面板 - 使用ADJUST_NOTHING防止输入法导致窗口被移除
+            // 添加菜单面板 - 使用固定位置和FLAG_LAYOUT_NO_LIMITS
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS | // 允许超出屏幕边界
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, // 固定在屏幕坐标系
                     PixelFormat.TRANSLUCENT
             );
-            menuParams.gravity = Gravity.CENTER;
+            menuParams.gravity = Gravity.TOP | Gravity.START; // 使用绝对定位
+            menuParams.x = horizontalMargin; // 固定X坐标
+            menuParams.y = verticalMargin; // 固定Y坐标
             menuParams.alpha = currentMenuAlpha;
-            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; // 输入法不影响窗口
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED | 
+                                       WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; // 完全不调整
             menuParams.width = menuWidth;
             menuParams.height = menuHeight;
             
-            DebugLogger.log("窗口参数: softInputMode=ADJUST_NOTHING");
+            DebugLogger.log("窗口参数: 固定位置模式");
+            DebugLogger.log("窗口参数: softInputMode=ADJUST_NOTHING + STATE_UNCHANGED");
 
             android.util.Log.d("FloatingService", "初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
             DebugLogger.log("初始位置: x=" + menuParams.x + ", y=" + menuParams.y);
