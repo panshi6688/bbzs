@@ -64,6 +64,31 @@ public class FloatingService extends Service {
     
     // E卡搜索相关
     private java.util.List<String> searchKeywords = new java.util.ArrayList<>();
+    private android.widget.TextView currentKeywordTextView; // 当前正在编辑的关键词TextView
+    
+    // 广播接收器 - 接收Activity返回的结果
+    private android.content.BroadcastReceiver keywordResultReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context context, Intent intent) {
+            if ("com.bbzs.app.KEYWORD_RESULT".equals(intent.getAction())) {
+                String keyword = intent.getStringExtra(KeywordInputActivity.EXTRA_RESULT_KEYWORD);
+                if (keyword != null && currentKeywordTextView != null) {
+                    currentKeywordTextView.setText(keyword);
+                    // 保存到历史
+                    if (!searchKeywords.contains(keyword)) {
+                        searchKeywords.add(keyword);
+                        saveSearchKeywords();
+                    }
+                    Toast.makeText(FloatingService.this, "关键词已保存", Toast.LENGTH_SHORT).show();
+                }
+                // 重新显示功能菜单
+                showMenu();
+            } else if ("com.bbzs.app.KEYWORD_CANCEL".equals(intent.getAction())) {
+                // 取消,重新显示功能菜单
+                showMenu();
+            }
+        }
+    };
 
     // 按钮数据结构
     private static class ButtonData {
@@ -90,6 +115,12 @@ public class FloatingService extends Service {
             android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             currentFontScale = prefs.getFloat(KEY_FONT_SCALE, DEFAULT_FONT_SCALE);
 
+            // 注册广播接收器
+            android.content.IntentFilter filter = new android.content.IntentFilter();
+            filter.addAction("com.bbzs.app.KEYWORD_RESULT");
+            filter.addAction("com.bbzs.app.KEYWORD_CANCEL");
+            registerReceiver(keywordResultReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+
             createNotificationChannel();
             startForeground(1, buildNotification());
 
@@ -113,6 +144,13 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        // 注销广播接收器
+        try {
+            unregisterReceiver(keywordResultReceiver);
+        } catch (Exception e) {
+            // 忽略
+        }
+        
         if (fontSizePanel != null && fontSizePanel.isAttachedToWindow()) {
             windowManager.removeView(fontSizePanel);
         }
@@ -1627,155 +1665,21 @@ public class FloatingService extends Service {
     // 已删除重复的getCurrentSearchKeyword方法
     
     /**
-     * 显示关键词输入对话框 - 使用全屏界面避免闪动
+     * 显示关键词输入Activity - 避免输入法弹出时闪动
      */
     private void showKeywordInputDialog(android.widget.TextView tvKeyword) {
-        // 先隐藏功能菜单,避免输入法弹出时闪动
+        // 先隐藏功能菜单
         hideMenu();
         
-        // 创建全屏布局
-        LinearLayout fullScreenLayout = new LinearLayout(this);
-        fullScreenLayout.setOrientation(LinearLayout.VERTICAL);
-        fullScreenLayout.setBackgroundColor(0xF0FFFFFF); // 半透明白色背景
-        fullScreenLayout.setPadding(60, 100, 60, 100);
-        fullScreenLayout.setGravity(Gravity.CENTER);
+        // 启动Activity
+        Intent intent = new Intent(this, KeywordInputActivity.class);
+        intent.putExtra(KeywordInputActivity.EXTRA_CURRENT_KEYWORD, tvKeyword.getText().toString());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         
-        // 标题
-        android.widget.TextView tvTitle = new android.widget.TextView(this);
-        tvTitle.setText("输入搜索关键词");
-        tvTitle.setTextSize(20);
-        tvTitle.setTextColor(0xFF333333);
-        tvTitle.setGravity(Gravity.CENTER);
-        tvTitle.setPadding(0, 0, 0, 40);
-        fullScreenLayout.addView(tvTitle);
+        // 保存TextView引用,用于接收结果
+        currentKeywordTextView = tvKeyword;
         
-        // 输入框
-        final android.widget.EditText input = new android.widget.EditText(this);
-        input.setText(tvKeyword.getText());
-        input.setSelection(input.getText().length());
-        input.setSingleLine(true);
-        input.setTextSize(16);
-        input.setPadding(30, 20, 30, 20);
-        input.setBackgroundColor(0xFFFFFFFF);
-        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        inputParams.setMargins(0, 0, 0, 30);
-        fullScreenLayout.addView(input, inputParams);
-        
-        // 历史记录标题
-        android.widget.TextView tvHistory = new android.widget.TextView(this);
-        tvHistory.setText("历史记录（点击选择）：");
-        tvHistory.setTextSize(14);
-        tvHistory.setTextColor(0xFF666666);
-        tvHistory.setPadding(0, 20, 0, 10);
-        fullScreenLayout.addView(tvHistory);
-        
-        // 历史记录列表
-        final android.widget.ListView listView = new android.widget.ListView(this);
-        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                searchKeywords
-        );
-        listView.setAdapter(adapter);
-        listView.setBackgroundColor(0xFFFFFFFF);
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1.0f
-        );
-        listParams.setMargins(0, 0, 0, 30);
-        fullScreenLayout.addView(listView, listParams);
-        
-        listView.setOnItemClickListener((parent, view, position, id) -> {
-            input.setText(searchKeywords.get(position));
-            input.setSelection(input.getText().length());
-        });
-        
-        // 按钮容器
-        LinearLayout buttonLayout = new LinearLayout(this);
-        buttonLayout.setOrientation(LinearLayout.HORIZONTAL);
-        buttonLayout.setGravity(Gravity.CENTER);
-        
-        // 取消按钮
-        android.widget.Button btnCancel = new android.widget.Button(this);
-        btnCancel.setText("取消");
-        btnCancel.setTextSize(16);
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.0f
-        );
-        btnParams.setMargins(0, 0, 20, 0);
-        buttonLayout.addView(btnCancel, btnParams);
-        
-        // 保存按钮
-        android.widget.Button btnSave = new android.widget.Button(this);
-        btnSave.setText("保存");
-        btnSave.setTextSize(16);
-        LinearLayout.LayoutParams btnSaveParams = new LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.0f
-        );
-        buttonLayout.addView(btnSave, btnSaveParams);
-        
-        fullScreenLayout.addView(buttonLayout);
-        
-        // 创建全屏窗口
-        final WindowManager.LayoutParams fullScreenParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                PixelFormat.TRANSLUCENT
-        );
-        fullScreenParams.gravity = Gravity.CENTER;
-        // 设置输入法弹出时不调整窗口
-        fullScreenParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-        
-        // 添加到窗口
-        windowManager.addView(fullScreenLayout, fullScreenParams);
-        
-        // 自动弹出输入法
-        input.requestFocus();
-        input.postDelayed(() -> {
-            android.view.inputmethod.InputMethodManager imm = 
-                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (imm != null) {
-                imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
-            }
-        }, 200);
-        
-        // 保存按钮点击
-        btnSave.setOnClickListener(v -> {
-            String keyword = input.getText().toString().trim();
-            if (!keyword.isEmpty()) {
-                tvKeyword.setText(keyword);
-                // 保存到历史
-                if (!searchKeywords.contains(keyword)) {
-                    searchKeywords.add(keyword);
-                    saveSearchKeywords();
-                }
-                Toast.makeText(this, "关键词已保存", Toast.LENGTH_SHORT).show();
-            }
-            // 关闭全屏界面
-            windowManager.removeView(fullScreenLayout);
-            // 重新显示功能菜单
-            showMenu();
-        });
-        
-        // 取消按钮点击
-        btnCancel.setOnClickListener(v -> {
-            // 关闭全屏界面
-            windowManager.removeView(fullScreenLayout);
-            // 重新显示功能菜单
-            showMenu();
-        });
+        startActivity(intent);
     }
     
     /**
