@@ -39,7 +39,7 @@ public class FloatingService extends Service {
     private static final String KEY_SEARCH_KEYWORDS = "search_keywords"; // E卡搜索关键词历史
     private static final String KEY_MENU_ALPHA = "menu_alpha"; // 菜单透明度
     private static final float DEFAULT_FONT_SCALE = 1.0f; // 默认字体缩放比例
-    private static final float DEFAULT_MENU_ALPHA = 0.8f; // 默认菜单不透明度（20%透明，80%不透明）
+    private static final float DEFAULT_MENU_ALPHA = 1.0f; // 默认菜单不透明度（0%透明，完全不透明）
     private static final int MAX_QUICK_ACCESS = 4; // 快速访问位置数量
 
     private WindowManager windowManager;
@@ -621,19 +621,19 @@ public class FloatingService extends Service {
             int maxHeight = screenHeight - verticalMargin * 2;
             int menuHeight = Math.min(contentHeight, maxHeight);
 
-            // 添加菜单面板 - 使用可聚焦模式确保触摸事件正常工作
+            // 添加菜单面板
             menuParams = new WindowManager.LayoutParams(
                     menuWidth,
                     menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
             menuParams.alpha = currentMenuAlpha; // 应用透明度
-            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN; // 输入法弹出时平移窗口而不是调整大小
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN | 
+                                       WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; // 输入法不影响窗口
 
             // 监听外部点击事件
             floatingMenu.setOnTouchListener((v, event) -> {
@@ -1596,21 +1596,54 @@ public class FloatingService extends Service {
         // 可编辑下拉框
         searchKeywordInput = new android.widget.AutoCompleteTextView(themedContext);
         searchKeywordInput.setHint("输入或选择关键词");
-        searchKeywordInput.setTextSize(14 * currentFontScale);
+        searchKeywordInput.setTextSize(12 * currentFontScale); // 缩小字体
+        searchKeywordInput.setSingleLine(true); // 单行显示
+        searchKeywordInput.setMaxLines(1); // 最大1行
         searchKeywordInput.setThreshold(1); // 输入1个字符就显示建议
         searchKeywordInput.setDropDownHeight(400); // 设置下拉列表高度
         // 添加下拉箭头图标
         searchKeywordInput.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
-        // 点击图标区域也能弹出下拉列表
-        searchKeywordInput.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (event.getRawX() >= (searchKeywordInput.getRight() - searchKeywordInput.getCompoundDrawables()[2].getBounds().width())) {
-                    searchKeywordInput.showDropDown();
-                    return true;
+        // 点击整个输入框区域都能弹出下拉列表
+        searchKeywordInput.setOnClickListener(v -> searchKeywordInput.showDropDown());
+        
+        // 焦点监听：输入法弹出时调整菜单位置
+        final int[] originalMenuY = {0};
+        searchKeywordInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // 获得焦点，输入法即将弹出
+                android.util.Log.d("FloatingService", "输入框获得焦点");
+                // 保存原始Y坐标
+                if (menuParams != null) {
+                    originalMenuY[0] = menuParams.y;
+                    // 将菜单上移，确保输入框可见
+                    android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+                    windowManager.getDefaultDisplay().getMetrics(dm);
+                    int screenHeight = dm.heightPixels;
+                    // 上移到屏幕上半部分
+                    menuParams.y = -screenHeight / 4;
+                    menuParams.gravity = Gravity.CENTER;
+                    try {
+                        windowManager.updateViewLayout(floatingMenu, menuParams);
+                    } catch (Exception e) {
+                        android.util.Log.e("FloatingService", "调整菜单位置失败", e);
+                    }
+                }
+            } else {
+                // 失去焦点，输入法关闭
+                android.util.Log.d("FloatingService", "输入框失去焦点");
+                // 恢复原始位置
+                if (menuParams != null) {
+                    menuParams.y = originalMenuY[0];
+                    menuParams.gravity = Gravity.CENTER;
+                    try {
+                        windowManager.updateViewLayout(floatingMenu, menuParams);
+                    } catch (Exception e) {
+                        android.util.Log.e("FloatingService", "恢复菜单位置失败", e);
+                    }
                 }
             }
-            return false;
         });
+        
         keywordAdapter = new android.widget.ArrayAdapter<>(
                 themedContext,
                 android.R.layout.simple_dropdown_item_1line,
@@ -1626,19 +1659,24 @@ public class FloatingService extends Service {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
         );
-        inputParams.rightMargin = 8;
+        inputParams.rightMargin = 4;
         searchKeywordInput.setLayoutParams(inputParams);
         
         // 保存按钮
         MaterialButton btnSave = new MaterialButton(themedContext, null,
                 com.google.android.material.R.attr.materialButtonOutlinedStyle);
         btnSave.setText("保存");
-        btnSave.setTextSize(13 * currentFontScale);
+        btnSave.setTextSize(11 * currentFontScale); // 缩小字体
+        btnSave.setMinWidth(0);
+        btnSave.setMinHeight(0);
+        btnSave.setInsetTop(0);
+        btnSave.setInsetBottom(0);
+        btnSave.setPadding(12, 8, 12, 8); // 减小内边距
         LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        saveParams.rightMargin = 8;
+        saveParams.rightMargin = 4;
         btnSave.setLayoutParams(saveParams);
         btnSave.setOnClickListener(v -> saveCurrentKeyword());
         
@@ -1647,8 +1685,8 @@ public class FloatingService extends Service {
         ivHelp.setImageResource(android.R.drawable.ic_menu_help);
         ivHelp.setColorFilter(0xFF666666);
         LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(
-                (int)(32 * getResources().getDisplayMetrics().density),
-                (int)(32 * getResources().getDisplayMetrics().density)
+                (int)(24 * getResources().getDisplayMetrics().density), // 缩小尺寸
+                (int)(24 * getResources().getDisplayMetrics().density)
         );
         ivHelp.setLayoutParams(helpParams);
         ivHelp.setOnClickListener(v -> showEkaSearchHelpDialog());
