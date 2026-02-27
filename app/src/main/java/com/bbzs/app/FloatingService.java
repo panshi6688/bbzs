@@ -66,7 +66,7 @@ public class FloatingService extends Service {
     private java.util.List<ButtonData> quickAccessButtons = new java.util.ArrayList<>();
     
     // E卡搜索相关
-    private android.widget.Spinner searchKeywordSpinner;
+    private android.widget.AutoCompleteTextView searchKeywordInput;
     private android.widget.ArrayAdapter<String> keywordAdapter;
     private java.util.List<String> searchKeywords = new java.util.ArrayList<>();
 
@@ -1579,22 +1579,40 @@ public class FloatingService extends Service {
         searchRowParams.bottomMargin = 12;
         searchRow.setLayoutParams(searchRowParams);
         
-        // 下拉选择框
-        searchKeywordSpinner = new android.widget.Spinner(themedContext);
+        // "关键词："标签
+        android.widget.TextView labelKeyword = new android.widget.TextView(themedContext);
+        labelKeyword.setText("关键词：");
+        labelKeyword.setTextSize(14 * currentFontScale);
+        labelKeyword.setTextColor(0xFF333333);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        labelParams.rightMargin = 8;
+        labelKeyword.setLayoutParams(labelParams);
+        
+        // 可编辑下拉框
+        searchKeywordInput = new android.widget.AutoCompleteTextView(themedContext);
+        searchKeywordInput.setHint("输入或选择关键词");
+        searchKeywordInput.setTextSize(14 * currentFontScale);
+        searchKeywordInput.setThreshold(1); // 输入1个字符就显示建议
         keywordAdapter = new android.widget.ArrayAdapter<>(
                 themedContext,
-                android.R.layout.simple_spinner_item,
+                android.R.layout.simple_dropdown_item_1line,
                 searchKeywords
         );
-        keywordAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        searchKeywordSpinner.setAdapter(keywordAdapter);
-        LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(
+        searchKeywordInput.setAdapter(keywordAdapter);
+        // 设置默认显示第一个关键词
+        if (!searchKeywords.isEmpty()) {
+            searchKeywordInput.setText(searchKeywords.get(0));
+        }
+        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
         );
-        spinnerParams.rightMargin = 8;
-        searchKeywordSpinner.setLayoutParams(spinnerParams);
+        inputParams.rightMargin = 8;
+        searchKeywordInput.setLayoutParams(inputParams);
         
         // 保存按钮
         MaterialButton btnSave = new MaterialButton(themedContext, null,
@@ -1620,7 +1638,8 @@ public class FloatingService extends Service {
         ivHelp.setLayoutParams(helpParams);
         ivHelp.setOnClickListener(v -> showEkaSearchHelpDialog());
         
-        searchRow.addView(searchKeywordSpinner);
+        searchRow.addView(labelKeyword);
+        searchRow.addView(searchKeywordInput);
         searchRow.addView(btnSave);
         searchRow.addView(ivHelp);
         contentContainer.addView(searchRow);
@@ -1769,8 +1788,11 @@ public class FloatingService extends Service {
      * 获取当前选中的搜索关键词
      */
     private String getCurrentSearchKeyword() {
-        if (searchKeywordSpinner != null && searchKeywordSpinner.getSelectedItem() != null) {
-            return searchKeywordSpinner.getSelectedItem().toString();
+        if (searchKeywordInput != null) {
+            String keyword = searchKeywordInput.getText().toString().trim();
+            if (!keyword.isEmpty()) {
+                return keyword;
+            }
         }
         return "京东E卡1元"; // 默认值
     }
