@@ -678,6 +678,21 @@ public class FloatingService extends Service {
             windowManager.addView(floatingMenu, menuParams);
             isMenuVisible = true;
             
+            // 添加窗口附加状态监听
+            floatingMenu.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View v) {
+                    DebugLogger.log("菜单已附加到窗口");
+                    isMenuVisible = true;
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View v) {
+                    DebugLogger.log("菜单已从窗口分离");
+                    isMenuVisible = false;
+                }
+            });
+            
             // 添加布局变化监听
             floatingMenu.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
                 @Override
