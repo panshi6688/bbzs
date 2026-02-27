@@ -39,7 +39,7 @@ public class FloatingService extends Service {
     private static final String KEY_SEARCH_KEYWORDS = "search_keywords"; // E卡搜索关键词历史
     private static final String KEY_MENU_ALPHA = "menu_alpha"; // 菜单透明度
     private static final float DEFAULT_FONT_SCALE = 1.0f; // 默认字体缩放比例
-    private static final float DEFAULT_MENU_ALPHA = 0.8f; // 默认菜单不透明度（80%不透明）
+    private static final float DEFAULT_MENU_ALPHA = 0.8f; // 默认菜单不透明度（20%透明，80%不透明）
     private static final int MAX_QUICK_ACCESS = 4; // 快速访问位置数量
 
     private WindowManager windowManager;
@@ -627,11 +627,13 @@ public class FloatingService extends Service {
                     menuHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
             menuParams.alpha = currentMenuAlpha; // 应用透明度
+            menuParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN; // 输入法弹出时平移窗口而不是调整大小
 
             // 监听外部点击事件
             floatingMenu.setOnTouchListener((v, event) -> {
@@ -1596,6 +1598,19 @@ public class FloatingService extends Service {
         searchKeywordInput.setHint("输入或选择关键词");
         searchKeywordInput.setTextSize(14 * currentFontScale);
         searchKeywordInput.setThreshold(1); // 输入1个字符就显示建议
+        searchKeywordInput.setDropDownHeight(400); // 设置下拉列表高度
+        // 添加下拉箭头图标
+        searchKeywordInput.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
+        // 点击图标区域也能弹出下拉列表
+        searchKeywordInput.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                if (event.getRawX() >= (searchKeywordInput.getRight() - searchKeywordInput.getCompoundDrawables()[2].getBounds().width())) {
+                    searchKeywordInput.showDropDown();
+                    return true;
+                }
+            }
+            return false;
+        });
         keywordAdapter = new android.widget.ArrayAdapter<>(
                 themedContext,
                 android.R.layout.simple_dropdown_item_1line,
