@@ -650,6 +650,8 @@ public class FloatingService extends Service {
             android.util.Log.e("FloatingService", "显示菜单失败: " + e.getMessage(), e);
         }
     }
+
+    /**
      * 隐藏功能菜单
      */
     private void hideMenu() {
