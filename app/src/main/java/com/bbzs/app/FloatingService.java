@@ -1627,48 +1627,132 @@ public class FloatingService extends Service {
     // 已删除重复的getCurrentSearchKeyword方法
     
     /**
-     * 显示关键词输入对话框
+     * 显示关键词输入对话框 - 使用全屏界面避免闪动
      */
     private void showKeywordInputDialog(android.widget.TextView tvKeyword) {
         // 先隐藏功能菜单,避免输入法弹出时闪动
         hideMenu();
         
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
-        builder.setTitle("输入搜索关键词");
+        // 创建全屏布局
+        LinearLayout fullScreenLayout = new LinearLayout(this);
+        fullScreenLayout.setOrientation(LinearLayout.VERTICAL);
+        fullScreenLayout.setBackgroundColor(0xF0FFFFFF); // 半透明白色背景
+        fullScreenLayout.setPadding(60, 100, 60, 100);
+        fullScreenLayout.setGravity(Gravity.CENTER);
         
-        // 创建输入框
-        final android.widget.EditText input = new android.widget.EditText(themedContext);
+        // 标题
+        android.widget.TextView tvTitle = new android.widget.TextView(this);
+        tvTitle.setText("输入搜索关键词");
+        tvTitle.setTextSize(20);
+        tvTitle.setTextColor(0xFF333333);
+        tvTitle.setGravity(Gravity.CENTER);
+        tvTitle.setPadding(0, 0, 0, 40);
+        fullScreenLayout.addView(tvTitle);
+        
+        // 输入框
+        final android.widget.EditText input = new android.widget.EditText(this);
         input.setText(tvKeyword.getText());
-        input.setSelection(input.getText().length()); // 光标移到末尾
+        input.setSelection(input.getText().length());
         input.setSingleLine(true);
+        input.setTextSize(16);
+        input.setPadding(30, 20, 30, 20);
+        input.setBackgroundColor(0xFFFFFFFF);
+        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        inputParams.setMargins(0, 0, 0, 30);
+        fullScreenLayout.addView(input, inputParams);
         
-        // 创建下拉列表显示历史
-        final android.widget.ListView listView = new android.widget.ListView(themedContext);
+        // 历史记录标题
+        android.widget.TextView tvHistory = new android.widget.TextView(this);
+        tvHistory.setText("历史记录（点击选择）：");
+        tvHistory.setTextSize(14);
+        tvHistory.setTextColor(0xFF666666);
+        tvHistory.setPadding(0, 20, 0, 10);
+        fullScreenLayout.addView(tvHistory);
+        
+        // 历史记录列表
+        final android.widget.ListView listView = new android.widget.ListView(this);
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
-                themedContext,
+                this,
                 android.R.layout.simple_list_item_1,
                 searchKeywords
         );
         listView.setAdapter(adapter);
+        listView.setBackgroundColor(0xFFFFFFFF);
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1.0f
+        );
+        listParams.setMargins(0, 0, 0, 30);
+        fullScreenLayout.addView(listView, listParams);
+        
         listView.setOnItemClickListener((parent, view, position, id) -> {
             input.setText(searchKeywords.get(position));
             input.setSelection(input.getText().length());
         });
         
-        // 布局
-        LinearLayout layout = new LinearLayout(themedContext);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 20, 50, 20);
-        layout.addView(input);
+        // 按钮容器
+        LinearLayout buttonLayout = new LinearLayout(this);
+        buttonLayout.setOrientation(LinearLayout.HORIZONTAL);
+        buttonLayout.setGravity(Gravity.CENTER);
         
-        android.widget.TextView tvHistory = new android.widget.TextView(themedContext);
-        tvHistory.setText("历史记录（点击选择）：");
-        tvHistory.setPadding(0, 20, 0, 10);
-        layout.addView(tvHistory);
-        layout.addView(listView);
+        // 取消按钮
+        android.widget.Button btnCancel = new android.widget.Button(this);
+        btnCancel.setText("取消");
+        btnCancel.setTextSize(16);
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1.0f
+        );
+        btnParams.setMargins(0, 0, 20, 0);
+        buttonLayout.addView(btnCancel, btnParams);
         
-        builder.setView(layout);
-        builder.setPositiveButton("保存", (dialog, which) -> {
+        // 保存按钮
+        android.widget.Button btnSave = new android.widget.Button(this);
+        btnSave.setText("保存");
+        btnSave.setTextSize(16);
+        LinearLayout.LayoutParams btnSaveParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1.0f
+        );
+        buttonLayout.addView(btnSave, btnSaveParams);
+        
+        fullScreenLayout.addView(buttonLayout);
+        
+        // 创建全屏窗口
+        final WindowManager.LayoutParams fullScreenParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                        : WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+        );
+        fullScreenParams.gravity = Gravity.CENTER;
+        // 设置输入法弹出时不调整窗口
+        fullScreenParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+        
+        // 添加到窗口
+        windowManager.addView(fullScreenLayout, fullScreenParams);
+        
+        // 自动弹出输入法
+        input.requestFocus();
+        input.postDelayed(() -> {
+            android.view.inputmethod.InputMethodManager imm = 
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }
+        }, 200);
+        
+        // 保存按钮点击
+        btnSave.setOnClickListener(v -> {
             String keyword = input.getText().toString().trim();
             if (!keyword.isEmpty()) {
                 tvKeyword.setText(keyword);
@@ -1679,31 +1763,19 @@ public class FloatingService extends Service {
                 }
                 Toast.makeText(this, "关键词已保存", Toast.LENGTH_SHORT).show();
             }
-            // 保存后重新显示功能菜单
+            // 关闭全屏界面
+            windowManager.removeView(fullScreenLayout);
+            // 重新显示功能菜单
             showMenu();
         });
-        builder.setNegativeButton("取消", (dialog, which) -> {
-            // 取消后也重新显示功能菜单
+        
+        // 取消按钮点击
+        btnCancel.setOnClickListener(v -> {
+            // 关闭全屏界面
+            windowManager.removeView(fullScreenLayout);
+            // 重新显示功能菜单
             showMenu();
         });
-        
-        android.app.AlertDialog dialog = builder.create();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_PHONE);
-            // 设置输入法弹出时不调整对话框位置,避免闪动
-            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
-        }
-        
-        // 对话框关闭时也重新显示功能菜单(处理点击外部关闭的情况)
-        dialog.setOnDismissListener(d -> {
-            if (!isMenuVisible) {
-                showMenu();
-            }
-        });
-        
-        dialog.show();
     }
     
     /**
