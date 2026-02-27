@@ -588,6 +588,10 @@ public class FloatingService extends Service {
      * 切换菜单显示/隐藏
      */
     private void toggleMenu() {
+        DebugLogger.log("===== toggleMenu 被调用 =====");
+        DebugLogger.log("当前状态 isMenuVisible: " + isMenuVisible);
+        DebugLogger.log("当前状态 isInputting: " + isInputting);
+        
         if (isMenuVisible) {
             hideMenu();
         } else {
@@ -599,7 +603,15 @@ public class FloatingService extends Service {
      * 显示功能菜单
      */
     private void showMenu() {
-        if (isMenuVisible) return;
+        if (isMenuVisible) {
+            DebugLogger.log("showMenu: 菜单已显示，跳过");
+            return;
+        }
+        
+        if (isInputting) {
+            DebugLogger.log("showMenu: 正在输入，跳过");
+            return;
+        }
 
         try {
             if (floatingMenu == null) {
