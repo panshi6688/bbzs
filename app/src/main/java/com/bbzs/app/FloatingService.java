@@ -36,19 +36,25 @@ public class FloatingService extends Service {
     private static final String PREF_NAME = "bbzs_settings";
     private static final String KEY_FONT_SCALE = "font_scale";
     private static final String KEY_QUICK_ACCESS = "quick_access_";
+    private static final String KEY_SEARCH_KEYWORDS = "search_keywords"; // E卡搜索关键词历史
+    private static final String KEY_MENU_ALPHA = "menu_alpha"; // 菜单透明度
     private static final float DEFAULT_FONT_SCALE = 1.0f; // 默认字体缩放比例
+    private static final float DEFAULT_MENU_ALPHA = 0.8f; // 默认菜单不透明度（80%不透明）
     private static final int MAX_QUICK_ACCESS = 4; // 快速访问位置数量
 
     private WindowManager windowManager;
     private View floatingIcon;
     private View floatingMenu;
     private View fontSizePanel; // 字体大小调整面板
+    private View alphaPanel; // 透明度调整面板
     private WindowManager.LayoutParams iconParams;
     private WindowManager.LayoutParams menuParams;
     private boolean isMenuVisible = false;
     private boolean isFontPanelVisible = false;
+    private boolean isAlphaPanelVisible = false;
     private android.content.Context themedContext; // 带主题的Context，用于创建Material组件
     private float currentFontScale = DEFAULT_FONT_SCALE; // 当前字体缩放比例
+    private float currentMenuAlpha = DEFAULT_MENU_ALPHA; // 当前菜单不透明度
     
     // 标签页相关
     private TabLayout tabLayout;
@@ -58,6 +64,11 @@ public class FloatingService extends Service {
     // 快速访问相关
     private LinearLayout quickAccessContainer;
     private java.util.List<ButtonData> quickAccessButtons = new java.util.ArrayList<>();
+    
+    // E卡搜索相关
+    private android.widget.Spinner searchKeywordSpinner;
+    private android.widget.ArrayAdapter<String> keywordAdapter;
+    private java.util.List<String> searchKeywords = new java.util.ArrayList<>();
 
     // 按钮数据结构
     private static class ButtonData {
@@ -76,9 +87,10 @@ public class FloatingService extends Service {
     public void onCreate() {
         super.onCreate();
         try {
-            // 加载保存的字体缩放比例
+            // 加载保存的设置
             android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             currentFontScale = prefs.getFloat(KEY_FONT_SCALE, DEFAULT_FONT_SCALE);
+            currentMenuAlpha = prefs.getFloat(KEY_MENU_ALPHA, DEFAULT_MENU_ALPHA);
 
             createNotificationChannel();
             startForeground(1, buildNotification());
@@ -102,6 +114,9 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (alphaPanel != null && alphaPanel.isAttachedToWindow()) {
+            windowManager.removeView(alphaPanel);
+        }
         if (fontSizePanel != null && fontSizePanel.isAttachedToWindow()) {
             windowManager.removeView(fontSizePanel);
         }
@@ -267,6 +282,7 @@ public class FloatingService extends Service {
             tabLayout.addTab(tabLayout.newTab().setText("全部\n功能"));
             tabLayout.addTab(tabLayout.newTab().setText("三元\n三件"));
             tabLayout.addTab(tabLayout.newTab().setText("兑换\n过肥"));
+            tabLayout.addTab(tabLayout.newTab().setText("E卡\n猫超"));
             tabLayout.addTab(tabLayout.newTab().setText("地址\n生成"));
             tabLayout.addTab(tabLayout.newTab().setText("查违\n禁店"));
             
@@ -615,6 +631,7 @@ public class FloatingService extends Service {
                     PixelFormat.TRANSLUCENT
             );
             menuParams.gravity = Gravity.CENTER;
+            menuParams.alpha = currentMenuAlpha; // 应用透明度
 
             // 监听外部点击事件
             floatingMenu.setOnTouchListener((v, event) -> {
@@ -633,8 +650,6 @@ public class FloatingService extends Service {
             android.util.Log.e("FloatingService", "显示菜单失败: " + e.getMessage(), e);
         }
     }
-
-    /**
      * 隐藏功能菜单
      */
     private void hideMenu() {
@@ -663,6 +678,9 @@ public class FloatingService extends Service {
                 int id = item.getItemId();
                 if (id == R.id.menu_exit) {
                     stopSelf();
+                    return true;
+                } else if (id == R.id.menu_alpha) {
+                    showAlphaPanel();
                     return true;
                 } else if (id == R.id.menu_font_size) {
                     showFontSizePanel();
@@ -1141,6 +1159,242 @@ public class FloatingService extends Service {
     }
 
     /**
+     * 显示透明度调整面板
+     */
+    private void showAlphaPanel() {
+        if (isAlphaPanelVisible) return;
+
+        try {
+            int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
+
+            // 获取屏幕尺寸
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            int screenWidth = dm.widthPixels;
+            int horizontalMargin = 120;
+            int panelWidth = screenWidth - horizontalMargin * 2;
+
+            // 创建面板布局
+            LinearLayout panel = new LinearLayout(themedContext);
+            panel.setOrientation(LinearLayout.VERTICAL);
+            panel.setBackgroundColor(0xFFFFFFFF);
+            panel.setPadding(20, 20, 20, 20);
+
+            // 标题
+            android.widget.TextView title = new android.widget.TextView(themedContext);
+            title.setText("调整透明度");
+            title.setTextSize(16);
+            title.setTextColor(0xFF333333);
+            title.setGravity(Gravity.CENTER);
+            panel.addView(title);
+
+            // 当前透明度显示
+            android.widget.TextView alphaText = new android.widget.TextView(themedContext);
+            int alphaPercent = (int)((1 - currentMenuAlpha) * 100);
+            alphaText.setText(String.format("当前透明度: %d%%", alphaPercent));
+            alphaText.setTextSize(14);
+            alphaText.setTextColor(0xFF666666);
+            alphaText.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams alphaTextParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            alphaTextParams.topMargin = 10;
+            alphaText.setLayoutParams(alphaTextParams);
+            panel.addView(alphaText);
+
+            // 滑动条容器
+            LinearLayout sliderContainer = new LinearLayout(themedContext);
+            sliderContainer.setOrientation(LinearLayout.HORIZONTAL);
+            sliderContainer.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams sliderContainerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            sliderContainerParams.topMargin = 20;
+            sliderContainer.setLayoutParams(sliderContainerParams);
+
+            // 减小按钮
+            MaterialButton btnDecrease = new MaterialButton(themedContext);
+            btnDecrease.setText("-");
+            btnDecrease.setTextSize(18);
+            LinearLayout.LayoutParams decreaseParams = new LinearLayout.LayoutParams(
+                    60,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            btnDecrease.setLayoutParams(decreaseParams);
+
+            // 滑动条 (0-100, 表示透明度百分比)
+            android.widget.SeekBar seekBar = new android.widget.SeekBar(themedContext);
+            seekBar.setMax(100);
+            seekBar.setProgress(alphaPercent);
+            LinearLayout.LayoutParams seekBarParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            seekBarParams.leftMargin = 10;
+            seekBarParams.rightMargin = 10;
+            seekBar.setLayoutParams(seekBarParams);
+
+            // 增大按钮
+            MaterialButton btnIncrease = new MaterialButton(themedContext);
+            btnIncrease.setText("+");
+            btnIncrease.setTextSize(18);
+            LinearLayout.LayoutParams increaseParams = new LinearLayout.LayoutParams(
+                    60,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            btnIncrease.setLayoutParams(increaseParams);
+
+            sliderContainer.addView(btnDecrease);
+            sliderContainer.addView(seekBar);
+            sliderContainer.addView(btnIncrease);
+            panel.addView(sliderContainer);
+
+            // 按钮容器
+            LinearLayout buttonContainer = new LinearLayout(themedContext);
+            buttonContainer.setOrientation(LinearLayout.HORIZONTAL);
+            buttonContainer.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams buttonContainerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            buttonContainerParams.topMargin = 20;
+            buttonContainer.setLayoutParams(buttonContainerParams);
+
+            // 确定按钮
+            MaterialButton btnConfirm = new MaterialButton(themedContext);
+            btnConfirm.setText("确定");
+            LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            confirmParams.rightMargin = 10;
+            btnConfirm.setLayoutParams(confirmParams);
+
+            // 取消按钮
+            MaterialButton btnCancel = new MaterialButton(themedContext);
+            btnCancel.setText("取消");
+            LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            cancelParams.leftMargin = 10;
+            btnCancel.setLayoutParams(cancelParams);
+
+            buttonContainer.addView(btnConfirm);
+            buttonContainer.addView(btnCancel);
+            panel.addView(buttonContainer);
+
+            // 滑动条监听
+            seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                    float newAlpha = 1.0f - (progress / 100.0f); // 转换为不透明度
+                    alphaText.setText(String.format("当前透明度: %d%%", progress));
+                    currentMenuAlpha = newAlpha;
+                    updateMenuAlpha();
+                }
+
+                @Override
+                public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+
+                @Override
+                public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+            });
+
+            // 减小按钮监听
+            btnDecrease.setOnClickListener(v -> {
+                int progress = seekBar.getProgress();
+                if (progress > 0) {
+                    seekBar.setProgress(progress - 5);
+                }
+            });
+
+            // 增大按钮监听
+            btnIncrease.setOnClickListener(v -> {
+                int progress = seekBar.getProgress();
+                if (progress < 100) {
+                    seekBar.setProgress(progress + 5);
+                }
+            });
+
+            // 确定按钮监听
+            btnConfirm.setOnClickListener(v -> {
+                saveMenuAlpha();
+                hideAlphaPanel();
+                Toast.makeText(this, "透明度已保存", Toast.LENGTH_SHORT).show();
+            });
+
+            // 取消按钮监听
+            btnCancel.setOnClickListener(v -> {
+                // 恢复原来的透明度
+                android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+                currentMenuAlpha = prefs.getFloat(KEY_MENU_ALPHA, DEFAULT_MENU_ALPHA);
+                updateMenuAlpha();
+                hideAlphaPanel();
+            });
+
+            alphaPanel = panel;
+
+            // 添加到窗口
+            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                    panelWidth,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    layoutType,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+            );
+            params.gravity = Gravity.CENTER;
+
+            windowManager.addView(alphaPanel, params);
+            isAlphaPanelVisible = true;
+
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "显示透明度调整面板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 隐藏透明度调整面板
+     */
+    private void hideAlphaPanel() {
+        if (!isAlphaPanelVisible) return;
+        try {
+            if (alphaPanel != null && alphaPanel.isAttachedToWindow()) {
+                windowManager.removeView(alphaPanel);
+                alphaPanel = null;
+            }
+            isAlphaPanelVisible = false;
+        } catch (Exception e) {
+            android.util.Log.e("FloatingService", "隐藏透明度调整面板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 更新菜单透明度（实时预览）
+     */
+    private void updateMenuAlpha() {
+        if (menuParams != null && floatingMenu != null && floatingMenu.isAttachedToWindow()) {
+            menuParams.alpha = currentMenuAlpha;
+            windowManager.updateViewLayout(floatingMenu, menuParams);
+        }
+    }
+
+    /**
+     * 保存菜单透明度
+     */
+    private void saveMenuAlpha() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        prefs.edit().putFloat(KEY_MENU_ALPHA, currentMenuAlpha).apply();
+    }
+
+    /**
      * 打开QQ群
      */
     private void openQQGroup() {
@@ -1215,10 +1469,13 @@ public class FloatingService extends Service {
             case 2: // 兑换过肥料
                 addDuihuanFeiliao();
                 break;
-            case 3: // 地址生成
+            case 3: // E卡猫超
+                addEkaSearchButtons();
+                break;
+            case 4: // 地址生成
                 addTextRow(contentContainer, "地址生成功能开发中...");
                 break;
-            case 4: // 查违禁店
+            case 5: // 查违禁店
                 addTextRow(contentContainer, "查违禁店功能开发中...");
                 break;
         }
@@ -1298,6 +1555,285 @@ public class FloatingService extends Service {
 
         // 提示文本
         addTextRow(contentContainer, "此页仅展示涉及到兑换过肥料的功能");
+    }
+
+    /**
+     * 添加E卡搜索界面
+     */
+    private void addEkaSearchButtons() {
+        if (contentContainer == null) return;
+        
+        // 加载搜索关键词
+        loadSearchKeywords();
+        
+        // 创建搜索控制行
+        LinearLayout searchRow = new LinearLayout(themedContext);
+        searchRow.setOrientation(LinearLayout.HORIZONTAL);
+        searchRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams searchRowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        searchRowParams.bottomMargin = 12;
+        searchRow.setLayoutParams(searchRowParams);
+        
+        // 下拉选择框
+        searchKeywordSpinner = new android.widget.Spinner(themedContext);
+        keywordAdapter = new android.widget.ArrayAdapter<>(
+                themedContext,
+                android.R.layout.simple_spinner_item,
+                searchKeywords
+        );
+        keywordAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        searchKeywordSpinner.setAdapter(keywordAdapter);
+        LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        spinnerParams.rightMargin = 8;
+        searchKeywordSpinner.setLayoutParams(spinnerParams);
+        
+        // 保存按钮
+        MaterialButton btnSave = new MaterialButton(themedContext, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btnSave.setText("保存");
+        btnSave.setTextSize(13 * currentFontScale);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        saveParams.rightMargin = 8;
+        btnSave.setLayoutParams(saveParams);
+        btnSave.setOnClickListener(v -> saveCurrentKeyword());
+        
+        // 帮助图标
+        android.widget.ImageView ivHelp = new android.widget.ImageView(themedContext);
+        ivHelp.setImageResource(android.R.drawable.ic_menu_help);
+        ivHelp.setColorFilter(0xFF666666);
+        LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(
+                (int)(32 * getResources().getDisplayMetrics().density),
+                (int)(32 * getResources().getDisplayMetrics().density)
+        );
+        ivHelp.setLayoutParams(helpParams);
+        ivHelp.setOnClickListener(v -> showEkaSearchHelpDialog());
+        
+        searchRow.addView(searchKeywordSpinner);
+        searchRow.addView(btnSave);
+        searchRow.addView(ivHelp);
+        contentContainer.addView(searchRow);
+        
+        // 添加按钮（使用特殊的点击处理）
+        // 第一组：6W, 4W1, 4W2, 购物车
+        addEkaButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("6W", "1次", UrlConstants.URL_6W),
+                new ButtonData("4W①", "1次", UrlConstants.URL_4W1),
+                new ButtonData("4W②", "1次", UrlConstants.URL_4W2),
+                new ButtonData("购物车", "", UrlConstants.URL_GOUWUCHE)
+        });
+        
+        // 第二组：代付款, 地址管理, 肥料明细, 3W1
+        addEkaButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("代付款", "", UrlConstants.URL_DAIFUKUAN),
+                new ButtonData("地址管理", "", UrlConstants.URL_DIZHI_GUANLI),
+                new ButtonData("肥料明细", "", UrlConstants.URL_FEILIAO_MINGXI),
+                new ButtonData("3W①", "10次", UrlConstants.URL_3W1)
+        });
+        
+        // 第三组：3W2, 3W3, 3W4, 空
+        addEkaButtonRow(contentContainer, new ButtonData[]{
+                new ButtonData("3W②", "3次", UrlConstants.URL_3W2),
+                new ButtonData("3W③", "1次", UrlConstants.URL_3W3),
+                new ButtonData("3W④", "1次", UrlConstants.URL_3W4),
+                null
+        });
+    }
+    
+    /**
+     * 添加E卡搜索按钮行（带关键词替换功能）
+     */
+    private void addEkaButtonRow(LinearLayout container, ButtonData[] buttons) {
+        LinearLayout row = new LinearLayout(themedContext);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        rowParams.topMargin = 1;
+        rowParams.bottomMargin = 1;
+        row.setLayoutParams(rowParams);
+
+        for (int i = 0; i < buttons.length; i++) {
+            if (buttons[i] != null) {
+                addEkaButton(row, buttons[i], i < buttons.length - 1);
+            } else {
+                addEmptySpace(row, i < buttons.length - 1);
+            }
+        }
+
+        container.addView(row);
+    }
+    
+    /**
+     * 添加E卡搜索按钮（点击时替换URL中的q参数）
+     */
+    private void addEkaButton(LinearLayout row, ButtonData data, boolean hasMargin) {
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(themedContext);
+        LinearLayout.LayoutParams frameParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        if (hasMargin) {
+            frameParams.rightMargin = 2;
+        }
+        frame.setLayoutParams(frameParams);
+
+        boolean hasBadge = data.badge != null && !data.badge.isEmpty();
+
+        MaterialButton btn = new MaterialButton(themedContext, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        btn.setText(data.text);
+        btn.setTextSize(13 * currentFontScale);
+        btn.setMinHeight(44);
+        btn.setCornerRadius(8);
+        btn.setStrokeWidth(1);
+        btn.setStrokeColorResource(android.R.color.darker_gray);
+        btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
+        btn.setTextColor(0xFF333333);
+        btn.setInsetTop(0);
+        btn.setInsetBottom(0);
+        btn.setPadding(4, 4, 4, 4);
+
+        android.widget.FrameLayout.LayoutParams btnParams = new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        btn.setLayoutParams(btnParams);
+
+        final String baseUrl = data.url;
+        btn.setOnClickListener(v -> {
+            String keyword = getCurrentSearchKeyword();
+            String finalUrl = replaceUrlQueryParam(baseUrl, "q", keyword);
+            openTaobaoUrl(finalUrl);
+            hideMenu();
+        });
+        
+        frame.addView(btn);
+
+        if (hasBadge) {
+            android.widget.TextView badge = new android.widget.TextView(themedContext);
+            badge.setText(data.badge);
+            badge.setTextSize(9 * currentFontScale);
+            badge.setTextColor(0xFFFF6200);
+            android.widget.FrameLayout.LayoutParams badgeParams = new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.END | android.view.Gravity.TOP
+            );
+            badgeParams.topMargin = 6;
+            badgeParams.rightMargin = 8;
+            badge.setLayoutParams(badgeParams);
+            frame.addView(badge);
+        }
+
+        row.addView(frame);
+    }
+    
+    /**
+     * 加载搜索关键词
+     */
+    private void loadSearchKeywords() {
+        searchKeywords.clear();
+        // 添加默认关键词
+        searchKeywords.add("京东E卡1元");
+        searchKeywords.add("享淘卡1元");
+        searchKeywords.add("猫超卡1元");
+        
+        // 加载用户保存的关键词
+        android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        String saved = prefs.getString(KEY_SEARCH_KEYWORDS, "");
+        if (!saved.isEmpty()) {
+            String[] keywords = saved.split("\\|");
+            for (String keyword : keywords) {
+                if (!keyword.isEmpty() && !searchKeywords.contains(keyword)) {
+                    searchKeywords.add(keyword);
+                }
+            }
+        }
+    }
+    
+    /**
+     * 获取当前选中的搜索关键词
+     */
+    private String getCurrentSearchKeyword() {
+        if (searchKeywordSpinner != null && searchKeywordSpinner.getSelectedItem() != null) {
+            return searchKeywordSpinner.getSelectedItem().toString();
+        }
+        return "京东E卡1元"; // 默认值
+    }
+    
+    /**
+     * 保存当前关键词
+     */
+    private void saveCurrentKeyword() {
+        String keyword = getCurrentSearchKeyword();
+        if (keyword.isEmpty()) {
+            Toast.makeText(this, "关键词不能为空", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        if (!searchKeywords.contains(keyword)) {
+            searchKeywords.add(keyword);
+            keywordAdapter.notifyDataSetChanged();
+            
+            // 保存到SharedPreferences
+            android.content.SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 3; i < searchKeywords.size(); i++) { // 跳过前3个默认关键词
+                if (sb.length() > 0) sb.append("|");
+                sb.append(searchKeywords.get(i));
+            }
+            prefs.edit().putString(KEY_SEARCH_KEYWORDS, sb.toString()).apply();
+            
+            Toast.makeText(this, "关键词已保存", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "关键词已存在", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * 显示E卡搜索帮助对话框
+     */
+    private void showEkaSearchHelpDialog() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(themedContext);
+        builder.setTitle("使用说明")
+                .setMessage("自定义搜索关键词后，点击4W,3W的肥料页可自动搜索为设置的关键词")
+                .setPositiveButton("知道了", null);
+        
+        android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        dialog.show();
+    }
+    
+    /**
+     * 替换URL中的查询参数
+     */
+    private String replaceUrlQueryParam(String url, String paramName, String newValue) {
+        try {
+            String encodedValue = java.net.URLEncoder.encode(newValue, "UTF-8");
+            // 使用正则替换q参数
+            String pattern = "([?&])" + paramName + "=([^&]*)";
+            String replacement = "$1" + paramName + "=" + encodedValue;
+            return url.replaceAll(pattern, replacement);
+        } catch (Exception e) {
+            Log.e("FloatingService", "替换URL参数失败", e);
+            return url;
+        }
     }
 
     /**
@@ -1568,9 +2104,10 @@ public class FloatingService extends Service {
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "悬浮窗服务", NotificationManager.IMPORTANCE_LOW
+                    CHANNEL_ID, "悬浮窗服务", NotificationManager.IMPORTANCE_DEFAULT  // 提高重要性，减少被系统限制
             );
             channel.setDescription("保持悬浮窗服务运行");
+            channel.setShowBadge(false);  // 不显示角标
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
@@ -1586,7 +2123,8 @@ public class FloatingService extends Service {
                 .setContentTitle("芭芭助手")
                 .setContentText("悬浮窗运行中")
                 .setSmallIcon(R.drawable.ic_floating)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)  // 提高优先级，减少被系统回收
+                .setOngoing(true)  // 设置为持续通知，不可滑动删除
                 .build();
     }
 }
