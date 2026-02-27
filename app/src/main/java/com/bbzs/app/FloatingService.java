@@ -1622,18 +1622,7 @@ public class FloatingService extends Service {
         }
     }
     
-    /**
-     * 获取当前选中的搜索关键词
-     */
-    private String getCurrentSearchKeyword() {
-        if (searchKeywordInput != null) {
-            String keyword = searchKeywordInput.getText().toString().trim();
-            if (!keyword.isEmpty()) {
-                return keyword;
-            }
-        }
-        return "京东E卡1元"; // 默认值
-    }
+    // 已删除重复的getCurrentSearchKeyword方法
     
     /**
      * 显示关键词输入对话框
